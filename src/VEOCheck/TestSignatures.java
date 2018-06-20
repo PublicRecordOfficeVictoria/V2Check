@@ -3,7 +3,6 @@
  * Licensed under the CC-BY license http://creativecommons.org/licenses/by/3.0/au/
  * Author Andrew Waugh
  */
-
 package VEOCheck;
 
 /**
@@ -45,6 +44,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
 import java.io.Writer;
+import java.nio.charset.Charset;
 import java.security.*;
 import java.security.cert.*;
 import java.util.ArrayList;
@@ -559,10 +559,14 @@ public class TestSignatures extends TestSupport {
         X509Certificate x509c;	// X.509 certificate with signers public key
         // create temporary file to capture output
         File ft;
+
+        // use the following when it is necessary to write out the byte stream
+        // being verified
+        /*
         FileOutputStream fos;
         Writer osw;
         BufferedWriter bw;
-
+         */
         /**
          * Constructor
          *
@@ -752,19 +756,19 @@ public class TestSignatures extends TestSupport {
                 return false;
             }
 
-            // set up file to write what we are verifying
-            if (debug) {
-                try {
-                    ft = File.createTempFile("SigDump", ".txt", new File("."));
-                    fos = new FileOutputStream(ft);
-                    osw = new OutputStreamWriter(fos, "8859_1");
-                    bw = new BufferedWriter(osw);
-                } catch (IOException ioe) {
-                    failed("Failed trying to write dump file: " + ioe.getMessage());
-                    return false;
-                }
+            // set up file to write byte stream we are verifying
+            // use this when attempting to work out why a signature is failing
+            /*
+            try {
+                ft = File.createTempFile("SigDump", ".txt", new File("."));
+                fos = new FileOutputStream(ft);
+                osw = new OutputStreamWriter(fos, Charset.forName("UTF-8"));
+                bw = new BufferedWriter(osw);
+            } catch (IOException ioe) {
+                failed("Failed trying to write dump file: " + ioe.getMessage());
+                return false;
             }
-
+             */
             // cancel the report on the sub test... initialising worked!
             cancelSubTest();
             return true;
@@ -833,15 +837,15 @@ public class TestSignatures extends TestSupport {
 
         public void nextChar(byte b) {
 
-            // if debugging, output bytes verified to a file
-            if (debug) {
-                try {
-                    bw.write((char) b);
-                } catch (IOException ioe) {
-                    print("TestSignatures.nextChar(): IOException when writing output bytes to a file: " + ioe.getMessage());
-                }
+            // use the following when it is necessary to output the byte stream
+            // being verified
+            /*
+            try {
+                bw.write((char) b);
+            } catch (IOException ioe) {
+                print("TestSignatures.nextChar(): IOException when writing output bytes to a file: " + ioe.getMessage());
             }
-
+             */
             // update the digital signature calculation
             try {
                 sig.update(b);
@@ -882,16 +886,16 @@ public class TestSignatures extends TestSupport {
                 '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
             String sigId;
 
-            // if debugging, close output files
-            if (debug) {
-                try {
-                    bw.close();
-                    osw.close();
-                    fos.close();
-                } catch (IOException ioe) {
-                    // ignore
-                }
+            // use the following when outputing the byte stream to be verified
+            /*
+            try {
+                bw.close();
+                osw.close();
+                fos.close();
+            } catch (IOException ioe) {
+                // ignore
             }
+            */
 
             // ignore this signature if not the first and only processing one level
             if (!isFirst) {
@@ -1111,19 +1115,19 @@ public class TestSignatures extends TestSupport {
             try {
                 first.verify(second.getPublicKey());
             } catch (SignatureException e) {
-                failed("Signature of Certificate failed to verify: "+e.getMessage()+"\r\n");
+                failed("Signature of Certificate failed to verify: " + e.getMessage() + "\r\n");
                 return false;
             } catch (CertificateException e) {
-                failed("Problem with Certificate: "+e.getMessage()+"\r\n");
+                failed("Problem with Certificate: " + e.getMessage() + "\r\n");
                 return false;
             } catch (NoSuchAlgorithmException e) {
                 failed("Problem with Certificate: No Such Algorithm: " + e.getMessage() + "\r\n");
                 return false;
             } catch (InvalidKeyException e) {
-                failed("Problem with Certificate: Invalid public key in Certificate: "+e.getMessage()+"\r\n");
+                failed("Problem with Certificate: Invalid public key in Certificate: " + e.getMessage() + "\r\n");
                 return false;
             } catch (NoSuchProviderException e) {
-                failed("Problem with Certificate: No such provider: "+e.getMessage()+"\r\n");
+                failed("Problem with Certificate: No such provider: " + e.getMessage() + "\r\n");
                 return false;
             }
             return true;
