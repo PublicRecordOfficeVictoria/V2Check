@@ -31,6 +31,7 @@ package VEOCheck;
  *************************************************************
  */
 import VERSCommon.*;
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
@@ -44,7 +45,11 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
 import java.io.Writer;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CoderResult;
 import java.security.*;
 import java.security.cert.*;
 import java.util.ArrayList;
@@ -68,6 +73,9 @@ public class TestSignatures extends TestSupport {
 
     // converter from Base64
     static B64 b64c = new B64();
+
+    // character decoder
+    CharsetDecoder cd;
 
     // true when processing a signed object in a vers:RevisedVEO
     boolean ignoreSignedObject;
@@ -142,6 +150,9 @@ public class TestSignatures extends TestSupport {
         root = null;
         ignoreSignedObject = false;
         firstSignatureBlock = true;
+
+        // decoder from UTF-8
+        cd = Charset.forName("UTF-8").newDecoder();
     }
 
     /**
@@ -163,13 +174,16 @@ public class TestSignatures extends TestSupport {
      */
     public boolean performTest(File veo) {
         FileInputStream fis;
-        InputStreamReader isr;
-        BufferedReader br;
+        BufferedInputStream bis;
+        byte[] b;
         int c;
         int j;
         boolean failed = false;
         TSState state;
         StringBuffer sb;
+        ByteBuffer bb;
+        CharBuffer cb;
+        CoderResult res;
 
         // reset the globals for a new run
         printTestHeader("Testing Signatures");
@@ -192,35 +206,39 @@ public class TestSignatures extends TestSupport {
             LOG.log(Level.WARNING, "TestSignatures.performTest(): VEO file ''{0}'' not found", new Object[]{veo.getAbsolutePath()});
             return false;
         }
-        try {
-            isr = new InputStreamReader(fis, "UTF-8");
-        } catch (UnsupportedEncodingException uee) {
-            LOG.log(Level.SEVERE, "TestSignatures.performTest(): encoding UTF-8 not supported");
-            try {
-                fis.close();
-            } catch (IOException ioe) {
-                /* ignore */ }
-            return false;
-        }
-        br = new BufferedReader(isr);
+        bis = new BufferedInputStream(fis);
 
         // process each character in the VEO
         state = tsstate[0];
         sb = new StringBuffer();
+        b = new byte[1];
+        bb = ByteBuffer.wrap(b);
+        char[] ca = new char[1];
+        cb = CharBuffer.wrap(ca);
+        cd.reset();
         j = 0;
         try {
-            while ((c = br.read()) != -1) {
+            while (bis.read(b, 0, 1) != -1) {
 
-                // ignore whitespace
-                if (((char) c) == ' ' || ((char) c) == '\t'
-                        || ((char) c) == '\r' || ((char) c) == '\n') {
+                // ignore whitespace (space, tab, carriage return, or new line
+                // assumes file is encoded using UTF-8 so these characters are
+                // ASCII
+                if (b[0] == 0x20 || b[0] == 0x09 || b[0] == 0x0D || b[0] == 0x0A) {
                     continue;
                 }
 
                 // write c to top signature checker
                 if (root != null) {
-                    root.nextChar((char) c);
+                    root.nextChar(b[0]);
                 }
+
+                // convert bytes to character
+                res = cd.decode(bb, cb, false);
+                if (res == CoderResult.UNDERFLOW || res == CoderResult.OVERFLOW) {
+                    continue;
+                }
+                c = cb.get();
+                cb.clear();
 
                 // record character...
                 if (state.isRecording()) {
@@ -258,9 +276,11 @@ public class TestSignatures extends TestSupport {
             LOG.log(Level.WARNING, "TestSignatures.performTest(): Error when reading VEO: {0}", new Object[]{ioe.getMessage()});
             failed = true;
         } finally {
+            cd.decode(bb, cb, true);
+            cd.flush(cb);
             try {
-                br.close();
-                isr.close();
+                bis.close();
+                // isr.close();
                 fis.close();
             } catch (IOException e) {
                 /* ignore */ }
@@ -895,8 +915,7 @@ public class TestSignatures extends TestSupport {
             } catch (IOException ioe) {
                 // ignore
             }
-            */
-
+             */
             // ignore this signature if not the first and only processing one level
             if (!isFirst) {
                 return true;
