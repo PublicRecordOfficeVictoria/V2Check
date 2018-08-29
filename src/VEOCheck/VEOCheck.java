@@ -724,8 +724,8 @@ public class VEOCheck {
      * @return true if the test succeeded
      * @throws IOException
      */
-    static String exe = "mcshield.exe";
-    static String cmd = "tasklist /fi \"imagename eq " + exe + "\" /nh";
+    static final String EXE = "mcshield.exe";
+    static final String CMD = "tasklist /fi \"imagename eq " + EXE + "\" /nh";
 
     private void testMcAfee() throws IOException, VEOError {
         int res;
@@ -743,9 +743,9 @@ public class VEOCheck {
         // attempt to start the mcshield service 
         rt = Runtime.getRuntime();
         try {
-            proc = rt.exec(cmd);
+            proc = rt.exec(CMD);
         } catch (IOException e) {
-            throw new VEOError("Couldn't execute command to confirm McAfee is running (" + cmd + "): " + e.toString());
+            throw new VEOError("Couldn't execute command to confirm McAfee is running (" + CMD + "): " + e.toString());
         }
 
         // drain the standard out looking for the specified process 
@@ -754,7 +754,7 @@ public class VEOCheck {
         br = new BufferedReader(isr);
         while ((line = br.readLine()) != null) {
             // System.out.println("lo:" + line); 
-            if (line.contains(exe)) {
+            if (line.contains(EXE)) {
                 mcAfeeRunning = true;
             }
         }
@@ -781,9 +781,9 @@ public class VEOCheck {
         try {
             res = proc.waitFor();
         } catch (InterruptedException e) {
-            throw new VEOError("Checking McAfee service was interupted (" + cmd + "): " + e.toString());
+            throw new VEOError("Checking McAfee service was interupted (" + CMD + "): " + e.toString());
         }
-        // out.write("Exec: '" + cmd + "' returned: " + res + " McAfee Running: " + mcAfeeRunning + "\n"); 
+        // out.write("Exec: '" + CMD + "' returned: " + res + " McAfee Running: " + mcAfeeRunning + "\n"); 
         if (!mcAfeeRunning) {
             throw new VEOError("McAfee virus scanner is NOT running. Returned: " + res + "\n");
         }
@@ -855,7 +855,7 @@ public class VEOCheck {
      * @param cutVEO cut down VEO with document content removed
      * @param out a StringWriter to capture output
      * @return true if test was successful
-     * @throws VEOSupport.VEOError
+     * @throws VEOError
      */
     public boolean vpaTestVEO(Path veo, Path cutVEO, StringWriter out) throws VEOError {
         org.w3c.dom.Element vdom;
