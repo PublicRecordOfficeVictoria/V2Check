@@ -597,10 +597,10 @@ public class TestSignatures extends TestSupport {
 
         // use the following when it is necessary to write out the byte stream
         // being verified
-
+        /*
         FileOutputStream fos;
         Writer osw;
-        BufferedWriter bw;
+        BufferedWriter bw; */
 
         /**
          * Constructor
@@ -790,11 +790,10 @@ public class TestSignatures extends TestSupport {
                 failed("Security package reports that public key is invalid. Error reported: " + ike.getMessage());
                 return false;
             }
-            System.err.println("MessageDigest: "+mdAlgorithm+" '"+md.toString()+"'");
 
             // set up file to write byte stream we are verifying
             // use this when attempting to work out why a signature is failing
-
+            /*
             try {
                 ft = File.createTempFile("SigDump", ".txt", new File("."));
                 fos = new FileOutputStream(ft);
@@ -803,7 +802,7 @@ public class TestSignatures extends TestSupport {
             } catch (IOException ioe) {
                 failed("Failed trying to write dump file: " + ioe.getMessage());
                 return false;
-            }
+            } */
 
             // cancel the report on the sub test... initialising worked!
             cancelSubTest();
@@ -875,12 +874,13 @@ public class TestSignatures extends TestSupport {
 
             // use the following when it is necessary to output the byte stream
             // being verified
-
+            /*
             try {
                 bw.write((char) b);
             } catch (IOException ioe) {
                 print("TestSignatures.nextChar(): IOException when writing output bytes to a file: " + ioe.getMessage());
             }
+            */
             
             // update the digital signature calculation
             try {
@@ -923,14 +923,14 @@ public class TestSignatures extends TestSupport {
             String sigId;
 
             // use the following when outputing the byte stream to be verified
-
+            /*
             try {
                 bw.close();
                 osw.close();
                 fos.close();
             } catch (IOException ioe) {
                 // ignore
-            }
+            } */
 
             // ignore this signature if not the first and only processing one level
             if (!isFirst) {
