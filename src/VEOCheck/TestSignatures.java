@@ -184,6 +184,8 @@ public class TestSignatures extends TestSupport {
         ByteBuffer bb;
         CharBuffer cb;
         CoderResult res;
+        int x;
+        StringBuilder s;
 
         // reset the globals for a new run
         printTestHeader("Testing Signatures");
@@ -215,8 +217,11 @@ public class TestSignatures extends TestSupport {
         bb = ByteBuffer.wrap(b);
         char[] ca = new char[1];
         cb = CharBuffer.wrap(ca);
+        // cb = CharBuffer.allocate(1);
         cd.reset();
         j = 0;
+        x = 0;
+        s = new StringBuilder();
         try {
             while (bis.read(b, 0, 1) != -1) {
 
@@ -234,11 +239,21 @@ public class TestSignatures extends TestSupport {
 
                 // convert bytes to character
                 res = cd.decode(bb, cb, false);
-                if (res == CoderResult.UNDERFLOW || res == CoderResult.OVERFLOW) {
-                    continue;
+                c = cb.get(0);
+
+                /*
+                System.err.print(String.format("%02X ", b[0]) + " ");
+                s.append((char) c);
+                x++;
+                if (x == 32) {
+                    System.err.print(s.toString());
+                    System.err.print("\n");
+                    s.setLength(0);
+                    x = 0;
                 }
-                c = cb.get();
+                */
                 cb.clear();
+                bb.clear();
 
                 // record character...
                 if (state.isRecording()) {

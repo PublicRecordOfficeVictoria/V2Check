@@ -476,7 +476,7 @@ public class VEOCheck {
             out.write("Using DTDs referenced by SYSTEM attribute in each VEO, ");
         }
         if (tempDir != null) {
-            out.write("Extracting to " + tempDir.toString());
+            out.write("Extracting to " + tempDir.toString()+", ");
         }
         if (verbose) {
             out.write("Verbose output, ");
