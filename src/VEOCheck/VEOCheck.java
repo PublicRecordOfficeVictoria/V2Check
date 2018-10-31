@@ -3,7 +3,6 @@
  * Licensed under the CC-BY license http://creativecommons.org/licenses/by/3.0/au/
  * Author Andrew Waugh
  */
-
 package VEOCheck;
 
 /**
@@ -16,14 +15,12 @@ package VEOCheck;
  * Andrew Waugh (andrew.waugh@prov.vic.gov.au) Copyright 2005, 2015, 2018 PROV
  *
  * 20101027 Changed default to be alltests = true to prevent the default from
- * not testing anything (confusing for users)
- * 20150511 Added testing for viruses
- * 20150518 Imported into NetBeans. Altered to support virus checking
- * 20150602 Added the ability to specify a directory of VEOs
- * 20180105 Added headless mode for new DA
- * 20180314 Added ability to specify a file that contains the DTD
- * 20180411 Altered virus checking to look for the process rather than the service
- * 20180601 Now uses VERSCommon instead of VEOSupport
+ * not testing anything (confusing for users) 20150511 Added testing for viruses
+ * 20150518 Imported into NetBeans. Altered to support virus checking 20150602
+ * Added the ability to specify a directory of VEOs 20180105 Added headless mode
+ * for new DA 20180314 Added ability to specify a file that contains the DTD
+ * 20180411 Altered virus checking to look for the process rather than the
+ * service 20180601 Now uses VERSCommon instead of VEOSupport
  *
  *************************************************************
  */
@@ -476,7 +473,7 @@ public class VEOCheck {
             out.write("Using DTDs referenced by SYSTEM attribute in each VEO, ");
         }
         if (tempDir != null) {
-            out.write("Extracting to " + tempDir.toString()+", ");
+            out.write("Extracting to " + tempDir.toString() + ", ");
         }
         if (verbose) {
             out.write("Verbose output, ");
@@ -541,29 +538,39 @@ public class VEOCheck {
             // if veo is a directory, go through directory and test all the VEOs
             // otherwise just test the VEO
             veoFile = Paths.get(veo);
-            if (Files.isDirectory(veoFile)) {
-                try {
-                    ds = Files.newDirectoryStream(veoFile);
-                    for (Path p : ds) {
-                        if (Files.isRegularFile(p) && p.toString().toLowerCase().endsWith(".veo")) {
-                            checkVEO(p.toString());
-                        }
-                    }
-                    ds.close();
-                } catch (IOException e) {
-                    throw new VEOError("Failed to process directory '" + veo + "': " + e.getMessage());
-                }
-            } else {
-                try {
-                    checkVEO(veo);
-                } catch (IOException e) {
-                    throw new VEOError(e.toString());
-                }
-            }
+            check(veoFile);
         }
 
         // check that the virus checking software is STILL running
         checkVirusScannerRunning(tempDir, true);
+    }
+
+    /**
+     * Recurse checking files
+     */
+    private void check(Path file) throws VEOError {
+        DirectoryStream<Path> ds;
+
+        if (Files.isDirectory(file)) {
+            try {
+                ds = Files.newDirectoryStream(file);
+                for (Path p : ds) {
+                    check(p);
+                }
+                ds.close();
+            } catch (IOException e) {
+                throw new VEOError("Failed to process directory '" + file.toString() + "': " + e.getMessage());
+            }
+        } else if (Files.isRegularFile(file)) {
+            if (!file.toString().toLowerCase().endsWith(".veo")) {
+                throw new VEOError("Ignored '" + file.toString() + "': as it does not end in '.veo'");
+            }
+            try {
+                checkVEO(file.toString());
+            } catch (IOException e) {
+                throw new VEOError("Failed to process file '" + file.toString() + "': " + e.getMessage());
+            }
+        }
     }
 
     /**
