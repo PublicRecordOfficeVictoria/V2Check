@@ -559,16 +559,16 @@ public class VEOCheck {
                 }
                 ds.close();
             } catch (IOException e) {
-                throw new VEOError("Failed to process directory '" + file.toString() + "': " + e.getMessage());
+                System.out.println("Failed to process directory '" + file.toString() + "': " + e.getMessage());
             }
         } else if (Files.isRegularFile(file)) {
             if (!file.toString().toLowerCase().endsWith(".veo")) {
-                throw new VEOError("Ignored '" + file.toString() + "': as it does not end in '.veo'");
+                System.out.println("Ignored '" + file.toString() + "': as it does not end in '.veo'");
             }
             try {
                 checkVEO(file.toString());
             } catch (IOException e) {
-                throw new VEOError("Failed to process file '" + file.toString() + "': " + e.getMessage());
+                System.out.println("Failed to process file '" + file.toString() + "': " + e.getMessage());
             }
         }
     }
