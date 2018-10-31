@@ -564,11 +564,12 @@ public class VEOCheck {
         } else if (Files.isRegularFile(file)) {
             if (!file.toString().toLowerCase().endsWith(".veo")) {
                 System.out.println("Ignored '" + file.toString() + "': as it does not end in '.veo'");
-            }
-            try {
-                checkVEO(file.toString());
-            } catch (IOException e) {
-                System.out.println("Failed to process file '" + file.toString() + "': " + e.getMessage());
+            } else {
+                try {
+                    checkVEO(file.toString());
+                } catch (IOException e) {
+                    System.out.println("Failed to process file '" + file.toString() + "': " + e.getMessage());
+                }
             }
         }
     }
