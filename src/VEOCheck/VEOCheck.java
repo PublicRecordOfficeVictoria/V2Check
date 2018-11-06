@@ -607,7 +607,7 @@ public class VEOCheck {
 
         // first extract the contents of the document data to reduce processing
         if (!parseVEO) {
-            pav = new PullApartVEO(filename);
+            pav = new PullApartVEO(filename, dtd);
             p1 = null;
             try {
                 p1 = Files.createTempFile(Paths.get("."), "Content", ".eveo");
@@ -616,7 +616,7 @@ public class VEOCheck {
                 if (p1 != null) {
                     Files.delete(p1);
                 }
-                out.write("FAILURE: " + e.getMessage() + " (VEOCheck.doTests() ExtractDocumentData)\r\n");
+                out.write("FAILURE: " + e.getMessage() + " (VEOCheck.checkVEO() PullApartVEO)\r\n");
                 return false;
             }
         } else {

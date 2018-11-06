@@ -3,7 +3,6 @@
  * Licensed under the CC-BY license http://creativecommons.org/licenses/by/3.0/au/
  * Author Andrew Waugh
  */
-
 package VEOCheck;
 
 /**
@@ -25,7 +24,8 @@ package VEOCheck;
  *
  * <ul>
  * <li>20110614 Changed OutputStreamWriter from 8859_1 to UTF-8
- * <li>20150518 Imported into NetBeans IDE and cleaned up. Added eicar.txt generation
+ * <li>20150518 Imported into NetBeans IDE and cleaned up. Added eicar.txt
+ * generation
  * <li>20180601 Now uses VERSCommon instead of VEOSupport
  * </ul>
  *
@@ -41,8 +41,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -56,6 +56,7 @@ public class PullApartVEO extends DefaultHandler {
 
     SAXParserFactory spf;
     SAXParser sax;          // parser to read the VEO
+    XMLReader xmlReader;    // XML reader
     Stack<String> currentElement; // stack of elements recognised
     Stack<String> currentId; // stack of ids
     String veoName;         // filename of VEO
@@ -76,20 +77,29 @@ public class PullApartVEO extends DefaultHandler {
     OutputStreamWriter contentosw;
     B64 b64;		    // base64 decoder
     Path tempDir;           // temporary directory in which to put the extracted content
+    Path dtd;               // file containing the DTD to use (may be null)
 
     /**
      * Default constructor
+     *
      * @param veoName the name of the veo being pulled apart
+     * @param dtd a file containing the DTD to use instead of that in the VEO
+     * (may be null)
      */
-    public PullApartVEO(String veoName) {
+    public PullApartVEO(String veoName, Path dtd) {
         int i;
-        
+
         // set up SAX parser
         try {
             spf = SAXParserFactory.newInstance();
             spf.setValidating(false);
             // spf.setFeature("http://xml.org/sax/features/resolve-dtd-uris", false);
             sax = spf.newSAXParser();
+            xmlReader = sax.getXMLReader();
+            xmlReader.setContentHandler(this);
+            xmlReader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+            xmlReader.setFeature("http://xml.org/sax/features/validation", false);
+            xmlReader.setEntityResolver(new eResolver());
         } catch (SAXNotRecognizedException e) {
             System.err.println("SAXNotRecognizedException:" + e.getMessage());
             System.exit(-1);
@@ -107,18 +117,18 @@ public class PullApartVEO extends DefaultHandler {
         // remember the veo name
         if ((i = veoName.lastIndexOf('.')) != -1) {
             if (i == 0) {
-                    this.veoName = "noName";
+                this.veoName = "noName";
             } else {
-                this.veoName = veoName.substring(0,i);
+                this.veoName = veoName.substring(0, i);
             }
         } else {
             this.veoName = veoName;
         }
-        
-        currentElement = new Stack<String>();
-        currentId = new Stack<String>();
+
+        currentElement = new Stack<>();
+        currentId = new Stack<>();
         bw = null;
-        files = new ArrayList<String>();
+        files = new ArrayList<>();
         renderingKeywords = new StringBuffer();
         emptyElement = false;
         extractContent = false;
@@ -158,8 +168,10 @@ public class PullApartVEO extends DefaultHandler {
      * @param outVeo the generated VEO without document data
      * @param tempDir a directory in which to put the extracted content
      * @param useStdDtd
-     * @param extract if true extract the document data into files for inspection
-     * @param virusScanning if true the extracted document data will be scanned for viruses
+     * @param extract if true extract the document data into files for
+     * inspection
+     * @param virusScanning if true the extracted document data will be scanned
+     * for viruses
      * @throws VEOError if extraction failed
      * @return lists of names of the extracted document data (empty if extract
      * is false)
@@ -167,7 +179,6 @@ public class PullApartVEO extends DefaultHandler {
     public ArrayList<String> extractDocumentData(File inVeo, File outVeo, Path tempDir, boolean useStdDtd, boolean extract, boolean virusScanning)
             throws VEOError {
         FileInputStream fis;
-        InputStreamReader isr;
         BufferedInputStream bis;
         FileOutputStream fos;
         OutputStreamWriter osw;
@@ -196,11 +207,14 @@ public class PullApartVEO extends DefaultHandler {
 
         // start the parse
         try {
+            xmlReader.parse(new InputSource(bis));
+            /*
             if (useStdDtd) {
-                sax.parse(bis, this, "http://www.prov.vic.gov.au/vers/standard/");
+                xmlReader.parse(bis, this, "http://www.prov.vic.gov.au/vers/standard/");
             } else {
-                sax.parse(inVeo, this);
+                xmlReader.parse(inVeo, this);
             }
+            */
         } catch (SAXException | IOException e) {
             try {
                 bis.close();
@@ -447,7 +461,7 @@ public class PullApartVEO extends DefaultHandler {
             // open the file for writing... if the content is base64 encoded
             // decode it, otherwise write out the characters
             try {
-                s = veoName+"-"+((String) currentId.peek());
+                s = veoName + "-" + ((String) currentId.peek());
                 f = Paths.get(tempDir.toAbsolutePath().toString(), s);
                 files.add(s);
                 contentfos = new FileOutputStream(f.toFile());
@@ -463,13 +477,16 @@ public class PullApartVEO extends DefaultHandler {
             } catch (IOException e) {
                 try {
                     contentosw.close();
-                } catch (IOException e1) { /* ignore */ }
+                } catch (IOException e1) {
+                    /* ignore */ }
                 try {
                     contentbos.close();
-                } catch (IOException e1) { /* ignore */ }
+                } catch (IOException e1) {
+                    /* ignore */ }
                 try {
                     contentfos.close();
-                } catch (IOException e1) { /* ignore */ }
+                } catch (IOException e1) {
+                    /* ignore */ }
                 throw new SAXException("IOException: " + e.getMessage());
             }
             outputOpen = true;
@@ -625,17 +642,21 @@ public class PullApartVEO extends DefaultHandler {
             if (!base64) {
                 try {
                     contentosw.close();
-                } catch (IOException e1) { /* ignore */ }
+                } catch (IOException e1) {
+                    /* ignore */ }
             }
             try {
                 contentbos.flush();
-            } catch (IOException e1) { /* ignore */ }
+            } catch (IOException e1) {
+                /* ignore */ }
             try {
                 contentbos.close();
-            } catch (IOException e1) { /* ignore */ }
+            } catch (IOException e1) {
+                /* ignore */ }
             try {
                 contentfos.close();
-            } catch (IOException e1) { /* ignore */ }
+            } catch (IOException e1) {
+                /* ignore */ }
             outputOpen = false;
         }
 
@@ -692,10 +713,25 @@ public class PullApartVEO extends DefaultHandler {
                 veoin = new File(args[1]);
                 veoout = new File(args[2]);
             }
-            pav = new PullApartVEO("Test");
+            pav = new PullApartVEO("Test", null);
             pav.extractDocumentData(veoin, veoout, Paths.get("."), true, extract, extract);
         } catch (VEOError e) {
             System.err.println(e.getMessage());
+        }
+    }
+
+    class eResolver implements EntityResolver {
+        @Override
+        public InputSource resolveEntity(String publicId, String systemId) {
+            try {
+            if (dtd != null && systemId.contains("vers.dtd")) {
+                return new InputSource(new FileReader(dtd.toFile()));
+            } else {
+                return null;
+            }
+            } catch (FileNotFoundException fnfe) {
+                return null;
+            }
         }
     }
 }
