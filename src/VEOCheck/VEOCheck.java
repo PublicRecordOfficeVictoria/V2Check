@@ -562,14 +562,20 @@ public class VEOCheck {
                 System.out.println("Failed to process directory '" + file.toString() + "': " + e.getMessage());
             }
         } else if (Files.isRegularFile(file)) {
-            if (!file.toString().toLowerCase().endsWith(".veo")) {
-                System.out.println("Ignored '" + file.toString() + "': as it does not end in '.veo'");
-            } else {
-                try {
-                    checkVEO(file.toString());
-                } catch (IOException e) {
-                    System.out.println("Failed to process file '" + file.toString() + "': " + e.getMessage());
+            try {
+                out.write("******************************************************************************\r\n");
+                if (!file.toString().toLowerCase().endsWith(".veo")) {
+                    out.write("Ignored '" + file.toString() + "': as it does not end in '.veo'\r\n");
+                } else {
+                    try {
+                        checkVEO(file.toString());
+                    } catch (IOException e) {
+                        System.out.println("Failed to process file '" + file.toString() + "': " + e.getMessage());
+                    }
                 }
+                out.flush();
+            } catch (IOException e) {
+                System.out.println("Failed in complaining that file '" + file.toString() + "' was not a VEO: " + e.getMessage() + "\r\n");
             }
         }
     }
@@ -593,7 +599,6 @@ public class VEOCheck {
         overallResult = true;
         content = null;
 
-        out.write("******************************************************************************\r\n");
         out.write("New test. Testing '" + filename + "'\r\n");
         p = Paths.get(filename);
         if (!Files.exists(p)) {
@@ -673,9 +678,11 @@ public class VEOCheck {
             return;
         }
         try {
+            out.flush(); // shouldn't be necessary, but...
             out.close();
         } catch (IOException e) {
-            /* ignore */ }
+            System.err.println("Closing out writer: " + e.getMessage() + " VEOCheck.closeOutputFile()");
+        }
     }
 
     /**
