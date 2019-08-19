@@ -32,18 +32,13 @@ package VEOCheck;
  */
 import VERSCommon.*;
 import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
@@ -184,8 +179,6 @@ public class TestSignatures extends TestSupport {
         ByteBuffer bb;
         CharBuffer cb;
         CoderResult res;
-        int x;
-        StringBuilder s;
 
         // reset the globals for a new run
         printTestHeader("Testing Signatures");
@@ -220,8 +213,6 @@ public class TestSignatures extends TestSupport {
         // cb = CharBuffer.allocate(1);
         cd.reset();
         j = 0;
-        x = 0;
-        s = new StringBuilder();
         try {
             while (bis.read(b, 0, 1) != -1) {
 
@@ -251,7 +242,7 @@ public class TestSignatures extends TestSupport {
                     s.setLength(0);
                     x = 0;
                 }
-                */
+                 */
                 cb.clear();
                 bb.clear();
 
@@ -601,7 +592,6 @@ public class TestSignatures extends TestSupport {
         FileOutputStream fos;
         Writer osw;
         BufferedWriter bw; */
-
         /**
          * Constructor
          *
@@ -755,7 +745,15 @@ public class TestSignatures extends TestSupport {
                     break;
                 case "1.2.840.113549.1.1.5":
                     sigAlgorithm = "SHA1withRSA";
-                    mdAlgorithm = "SHA1";
+                    mdAlgorithm = "SHA-1";
+                    break;
+                case "1.2.840.113549.1.1.11":
+                    sigAlgorithm = "SHA256withRSA";
+                    mdAlgorithm = "SHA-256";
+                    break;
+                case "1.2.840.113549.1.1.13":
+                    sigAlgorithm = "SHA512withRSA";
+                    mdAlgorithm = "SHA-512";
                     break;
                 default:
                     failed("The signature algorithm identifier ('" + sigAlgId + "') contained in the vers:SignatureAlgorithmIdentifier (M150) element is not recognised");
@@ -803,7 +801,6 @@ public class TestSignatures extends TestSupport {
                 failed("Failed trying to write dump file: " + ioe.getMessage());
                 return false;
             } */
-
             // cancel the report on the sub test... initialising worked!
             cancelSubTest();
             return true;
@@ -880,8 +877,7 @@ public class TestSignatures extends TestSupport {
             } catch (IOException ioe) {
                 print("TestSignatures.nextChar(): IOException when writing output bytes to a file: " + ioe.getMessage());
             }
-            */
-            
+             */
             // update the digital signature calculation
             try {
                 sig.update(b);
@@ -931,7 +927,6 @@ public class TestSignatures extends TestSupport {
             } catch (IOException ioe) {
                 // ignore
             } */
-
             // ignore this signature if not the first and only processing one level
             if (!isFirst) {
                 return true;
