@@ -934,6 +934,7 @@ public class VEOCheck {
             vc.printHeader();
             vc.testVEOs();
         } catch (IOException | VEOError e) {
+            vc.closeOutputFile();
             System.err.println(e.toString());
             System.exit(-1);
         }
