@@ -26,6 +26,7 @@ package VEOCheck;
  * loading the signature failed (e.g. due to signature format failure)</li>
  * <li>20180406 Revised logging and reporting </li>
  * <li>20180601 Now uses VERSCommon instead of VEOSupport
+ * <li>20190909 Added support for SHA-384
  * </ul>
  *
  *************************************************************
@@ -750,6 +751,10 @@ public class TestSignatures extends TestSupport {
                 case "1.2.840.113549.1.1.11":
                     sigAlgorithm = "SHA256withRSA";
                     mdAlgorithm = "SHA-256";
+                    break;
+                case "1.2.840.113549.1.1.12":
+                    sigAlgorithm = "SHA384withRSA";
+                    mdAlgorithm = "SHA-384";
                     break;
                 case "1.2.840.113549.1.1.13":
                     sigAlgorithm = "SHA512withRSA";
