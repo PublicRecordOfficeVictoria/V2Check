@@ -966,7 +966,8 @@ public class TestSignatures extends TestSupport {
 
             // dump the signature
             if (verbose) {
-
+                println("");
+                println("  Signature/Hash algorithm: "+sigAlgorithm);
                 println("  Signature (base64): " + signature);
                 print("  Signature (hex): ");
                 for (i = 0; i < b.length; i++) {
