@@ -66,6 +66,7 @@ public class TestViruses extends TestSupport {
         boolean fail;
 
         startSubTest("TESTING FOR VIRUSES");
+        success = true;
         
         // delay to give virus checker time to work
         try {

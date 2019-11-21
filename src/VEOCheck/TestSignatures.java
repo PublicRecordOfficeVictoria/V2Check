@@ -183,6 +183,7 @@ public class TestSignatures extends TestSupport {
 
         // reset the globals for a new run
         printTestHeader("Testing Signatures");
+        success = true;
         root = null;
         sigBlockList = null;
         lockSigBlock = null;

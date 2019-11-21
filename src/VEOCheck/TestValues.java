@@ -118,6 +118,7 @@ public class TestValues extends TestSupport {
         // reset globals
         errorMsg.setLength(0);
 
+        success = true;
         forceVersion = null;
         layer = 0;
         thisLayerVersion = null;
