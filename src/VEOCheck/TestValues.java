@@ -1083,6 +1083,7 @@ public class TestValues extends TestSupport {
 
     /**
      * TestSupport a vers:SecurityClassification (130)
+     * 20191209 - Added the classifications Unofficial to Personal Privacy
      */
     boolean testSecurityClassification(Node n) {
         boolean passed = true;
@@ -1096,8 +1097,15 @@ public class TestValues extends TestSupport {
                 && !checkValue(n, "Highly Protected", ", ")
                 && !checkValue(n, "Restricted", ", ")
                 && !checkValue(n, "Confidential", ", ")
-                && !checkValue(n, "Secret", ", or ")
-                && !checkValue(n, "Top Secret", " ")) {
+                && !checkValue(n, "Secret", ", ")
+                && !checkValue(n, "Top Secret", ", ")
+                && !checkValue(n, "Unofficial", ", ")
+                && !checkValue(n, "OFFICIAL", ", ")
+                && !checkValue(n, "OFFICIAL:Sensitive", ", ")
+                && !checkValue(n, "Cabinet-In-Confidence", ", ")
+                && !checkValue(n, "Legal Privilege", ", ")
+                && !checkValue(n, "Legislative Secrecy", ", or ")
+                && !checkValue(n, "Personal Privacy", " ")) {
             confirmError();
             passed = false;
         }
