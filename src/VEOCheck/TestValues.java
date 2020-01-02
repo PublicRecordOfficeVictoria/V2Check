@@ -1102,7 +1102,7 @@ public class TestValues extends TestSupport {
                 && !checkValue(n, "Unofficial", ", ")
                 && !checkValue(n, "OFFICIAL", ", ")
                 && !checkValue(n, "OFFICIAL:Sensitive", ", ")
-                && !checkValue(n, "Cabinet-In-Confidence", ", ")
+                && !checkValue(n, "Cabinet-in-Confidence", ", ")
                 && !checkValue(n, "Legal Privilege", ", ")
                 && !checkValue(n, "Legislative Secrecy", ", or ")
                 && !checkValue(n, "Personal Privacy", " ")) {
