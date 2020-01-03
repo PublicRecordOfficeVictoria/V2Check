@@ -1,6 +1,7 @@
-echo n
-set code="G:PROV\TECHNOLOGY MANAGEMENT\Application Development\VERS"
-set javaExec=%code%\j2sdk1.4.1_05\bin\java"
-set xalanDir=%code%\xalan-j_2_6_0"
-set versclasspath=%code%
-java -Xmx200m -classpath %versclasspath% VEOCheckII.PullApartVEO %1 %2 %3
+@echo off
+if exist "J:/PROV/TECHNOLOGY MANAGEMENT/Application Development/VERS/VERSCode" (
+	set code="J:/PROV/TECHNOLOGY MANAGEMENT/Application Development/VERS/VERSCode"
+) else (
+	set code="C:/Users/Andrew/Documents/Work/VERSCode"
+)
+java -Xmx200m -classpath %code%/V2Check/dist/* V2Check.PullApartVEO %1 %2 %3
