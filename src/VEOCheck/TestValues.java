@@ -1084,6 +1084,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:SecurityClassification (130)
      * 20191209 - Added the classifications Unofficial to Personal Privacy
+     * 20200205 - Forced a relaxed test of equality a/c transfer request
      */
     boolean testSecurityClassification(Node n) {
         boolean passed = true;
@@ -1091,21 +1092,21 @@ public class TestValues extends TestSupport {
         // test for controlled values
         startValueError(n, 25, true);
         Error("which must be: ");
-        if (!checkValue(n, "Unclassified", ", ")
-                && !checkValue(n, "In-Confidence", ", ")
-                && !checkValue(n, "Protected", ", ")
-                && !checkValue(n, "Highly Protected", ", ")
-                && !checkValue(n, "Restricted", ", ")
-                && !checkValue(n, "Confidential", ", ")
-                && !checkValue(n, "Secret", ", ")
-                && !checkValue(n, "Top Secret", ", ")
-                && !checkValue(n, "Unofficial", ", ")
-                && !checkValue(n, "OFFICIAL", ", ")
-                && !checkValue(n, "OFFICIAL:Sensitive", ", ")
-                && !checkValue(n, "Cabinet-in-Confidence", ", ")
-                && !checkValue(n, "Legal Privilege", ", ")
-                && !checkValue(n, "Legislative Secrecy", ", or ")
-                && !checkValue(n, "Personal Privacy", " ")) {
+        if (!checkValueRelaxed(n, "Unclassified", ", ")
+                && !checkValueRelaxed(n, "In-Confidence", ", ")
+                && !checkValueRelaxed(n, "Protected", ", ")
+                && !checkValueRelaxed(n, "Highly Protected", ", ")
+                && !checkValueRelaxed(n, "Restricted", ", ")
+                && !checkValueRelaxed(n, "Confidential", ", ")
+                && !checkValueRelaxed(n, "Secret", ", ")
+                && !checkValueRelaxed(n, "Top Secret", ", ")
+                && !checkValueRelaxed(n, "Unofficial", ", ")
+                && !checkValueRelaxed(n, "OFFICIAL", ", ")
+                && !checkValueRelaxed(n, "OFFICIAL:Sensitive", ", ")
+                && !checkValueRelaxed(n, "Cabinet-in-Confidence", ", ")
+                && !checkValueRelaxed(n, "Legal Privilege", ", ")
+                && !checkValueRelaxed(n, "Legislative Secrecy", ", or ")
+                && !checkValueRelaxed(n, "Personal Privacy", " ")) {
             confirmError();
             passed = false;
         }
@@ -1880,6 +1881,19 @@ public class TestValues extends TestSupport {
             value = value.toLowerCase();
             s1 = getValue(n).trim().toLowerCase();
         }
+        return value.equals(s1);
+    }
+    
+    /**
+     * Check the value in the node against the required value, always ignoring
+     * case. If test fails, add required value as an option in the error message
+     */
+    boolean checkValueRelaxed(Node n, String value, String separator) {
+        String s1;
+
+        Error("'" + value + "'" + separator);
+        value = value.toLowerCase();
+        s1 = getValue(n).trim().toLowerCase();
         return value.equals(s1);
     }
 
