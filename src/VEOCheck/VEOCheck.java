@@ -37,6 +37,7 @@ import java.io.StringWriter;
 import java.io.Writer;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
@@ -75,7 +76,7 @@ public class VEOCheck {
     private boolean headless; // true if using in headless mode
 
     // command line arguments
-    private final ArrayList<String> files;
+    private final ArrayList<Path> files;
     private boolean strict;
     private boolean da;
     private boolean extract;
@@ -363,7 +364,12 @@ public class VEOCheck {
                         result = result + "Unknown argument: '" + args[i] + "'\r\n";
                         result = result + " Usage: " + usage + "\r\n";
                     } else {
-                        files.add(args[i]);
+                        try {
+                        files.add(Paths.get(args[i]));
+                        } catch (InvalidPathException ipe) {
+                            result = result + "Invalid file name for VEO: "+ipe.getMessage()+"\r\n";
+                            break;
+                        }
                     }
                     break;
             }
@@ -496,9 +502,8 @@ public class VEOCheck {
      */
     public void testVEOs() throws VEOError, IOException {
         int i;
-        String veo;
-        DirectoryStream<Path> ds;
-        Path veoFile;
+        Path veo;
+
 
         if (headless) {
             return;
@@ -537,8 +542,7 @@ public class VEOCheck {
 
             // if veo is a directory, go through directory and test all the VEOs
             // otherwise just test the VEO
-            veoFile = Paths.get(veo);
-            check(veoFile);
+            check(veo);
         }
 
         // check that the virus checking software is STILL running
@@ -550,6 +554,13 @@ public class VEOCheck {
      */
     private void check(Path file) throws VEOError {
         DirectoryStream<Path> ds;
+        String filePath;
+        
+        try {
+            filePath = file.toFile().getCanonicalPath().toString();
+        } catch (IOException ioe){
+            throw new VEOError("Failed to identify file/directory '"+file.toString()+"' because: "+ioe.getMessage());
+        }
 
         if (Files.isDirectory(file)) {
             try {
@@ -559,23 +570,23 @@ public class VEOCheck {
                 }
                 ds.close();
             } catch (IOException e) {
-                System.out.println("Failed to process directory '" + file.toString() + "': " + e.getMessage());
+                System.out.println("Failed to process directory '" + filePath + "': " + e.getMessage());
             }
         } else if (Files.isRegularFile(file)) {
             try {
                 out.write("******************************************************************************\r\n");
                 if (!file.toString().toLowerCase().endsWith(".veo")) {
-                    out.write("Ignored '" + file.toString() + "': as it does not end in '.veo'\r\n");
+                    out.write("Ignored '" + filePath + "': as it does not end in '.veo'\r\n");
                 } else {
                     try {
-                        checkVEO(file.toString());
+                        checkVEO(filePath);
                     } catch (IOException e) {
-                        System.out.println("Failed to process file '" + file.toString() + "': " + e.getMessage());
+                        System.out.println("Failed to process file '" + filePath + "': " + e.getMessage());
                     }
                 }
                 out.flush();
             } catch (IOException e) {
-                System.out.println("Failed in complaining that file '" + file.toString() + "' was not a VEO: " + e.getMessage() + "\r\n");
+                System.out.println("Failed in complaining that file '" + filePath + "' was not a VEO: " + e.getMessage() + "\r\n");
             }
         }
     }
@@ -612,11 +623,11 @@ public class VEOCheck {
 
         // first extract the contents of the document data to reduce processing
         if (!parseVEO) {
-            pav = new PullApartVEO(filename, dtd);
+            pav = new PullApartVEO(dtd);
             p1 = null;
             try {
                 p1 = Files.createTempFile(Paths.get("."), "Content", ".eveo");
-                content = pav.extractDocumentData(p.toFile(), p1.toFile(), tempDir, useStdDtd, extract, virusCheck);
+                content = pav.extractDocumentData(p, p1, tempDir, useStdDtd, extract, virusCheck);
             } catch (VEOError | IOException e) {
                 if (p1 != null) {
                     Files.delete(p1);

@@ -82,12 +82,10 @@ public class PullApartVEO extends DefaultHandler {
     /**
      * Default constructor
      *
-     * @param veoName the name of the veo being pulled apart
      * @param dtd a file containing the DTD to use instead of that in the VEO
      * (may be null)
      */
-    public PullApartVEO(String veoName, Path dtd) {
-        int i;
+    public PullApartVEO(Path dtd) {
 
         // set up SAX parser
         try {
@@ -114,17 +112,7 @@ public class PullApartVEO extends DefaultHandler {
             System.exit(-1);
         }
 
-        // remember the veo name
-        if ((i = veoName.lastIndexOf('.')) != -1) {
-            if (i == 0) {
-                this.veoName = "noName";
-            } else {
-                this.veoName = veoName.substring(0, i);
-            }
-        } else {
-            this.veoName = veoName;
-        }
-
+        veoName = "noName";
         currentElement = new Stack<>();
         currentId = new Stack<>();
         bw = null;
@@ -176,12 +164,14 @@ public class PullApartVEO extends DefaultHandler {
      * @return lists of names of the extracted document data (empty if extract
      * is false)
      */
-    public ArrayList<String> extractDocumentData(File inVeo, File outVeo, Path tempDir, boolean useStdDtd, boolean extract, boolean virusScanning)
+    public ArrayList<String> extractDocumentData(Path inVeo, Path outVeo, Path tempDir, boolean useStdDtd, boolean extract, boolean virusScanning)
             throws VEOError {
         FileInputStream fis;
         BufferedInputStream bis;
         FileOutputStream fos;
         OutputStreamWriter osw;
+        int i;
+        String s;
 
         // check parameters
         if (inVeo == null) {
@@ -190,15 +180,27 @@ public class PullApartVEO extends DefaultHandler {
         if (outVeo == null) {
             throw new VEOError("outVEO must not be null");
         }
+         
+        // remember the veo name without the file extension
+        s = inVeo.getFileName().toString();
+        if ((i = s.lastIndexOf('.')) != -1) {
+            if (i == 0) {
+                veoName = "noName";
+            } else {
+                veoName = s.substring(0, i);
+            }
+        } else {
+            veoName = s;
+        }
 
         // remember if to extract (or not)
         extractContent = extract;
 
         // open input and output streams
         try {
-            fis = new FileInputStream(inVeo);
+            fis = new FileInputStream(inVeo.toFile());
             bis = new BufferedInputStream(fis);
-            fos = new FileOutputStream(outVeo);
+            fos = new FileOutputStream(outVeo.toFile());
             osw = new OutputStreamWriter(fos, "UTF-8");
             bw = new BufferedWriter(osw);
         } catch (IOException e) {
@@ -696,7 +698,7 @@ public class PullApartVEO extends DefaultHandler {
      */
     public static void main(String args[]) {
         PullApartVEO pav;
-        File veoin, veoout;
+        String veoin, veoout;
         boolean extract;
 
         if (args.length < 2 || args.length > 3) {
@@ -706,15 +708,15 @@ public class PullApartVEO extends DefaultHandler {
         try {
             if (args.length == 2) {
                 extract = false;
-                veoin = new File(args[0]);
-                veoout = new File(args[1]);
+                veoin = args[0];
+                veoout = args[1];
             } else {
                 extract = true;
-                veoin = new File(args[1]);
-                veoout = new File(args[2]);
+                veoin = args[1];
+                veoout = args[2];
             }
-            pav = new PullApartVEO("Test", null);
-            pav.extractDocumentData(veoin, veoout, Paths.get("."), true, extract, extract);
+            pav = new PullApartVEO(null);
+            pav.extractDocumentData(Paths.get(veoin), Paths.get(veoout), Paths.get("."), true, extract, extract);
         } catch (VEOError e) {
             System.err.println(e.getMessage());
         }
