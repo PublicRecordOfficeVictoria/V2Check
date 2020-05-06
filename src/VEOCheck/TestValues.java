@@ -53,6 +53,7 @@ public class TestValues extends TestSupport {
     String schemeType;          // type of title scheme
     String currentContext;	// current context of VEO
     HashMap<String,Node> nodeLabels; // hash table of vers:id 
+    boolean migration;          // true if migrating from old DSA - back off on some of the validation
     
     // Logging
     private final static Logger LOG = Logger.getLogger("VEOCheck.TestValues");
@@ -64,10 +65,11 @@ public class TestValues extends TestSupport {
      * @param strict
      * @param da
      * @param oneLayer
+     * @param migration true if migrating from old DSA - back off on some of the validation
      * @param out
      */
     public TestValues(boolean verbose, boolean strict,
-            boolean da, boolean oneLayer, Writer out) {
+            boolean da, boolean oneLayer, boolean migration, Writer out) {
         super(verbose, strict, da, oneLayer, out);
         errorMsg = new StringBuffer();
 
@@ -80,6 +82,7 @@ public class TestValues extends TestSupport {
         inOriginalVEO = false;
         schemeType = null;
         nodeLabels = new HashMap<>();
+        this.migration = migration;
     }
 
     /**
@@ -109,11 +112,10 @@ public class TestValues extends TestSupport {
      * elements.
      *
      * @param veo the VEO to check
-     * @return true if parse suceeded
+     * @return true if parse succeeded
      */
     public boolean performTest(Element veo) {
         String s;
-        Element e;
 
         // reset globals
         errorMsg.setLength(0);
@@ -339,7 +341,6 @@ public class TestValues extends TestSupport {
      * exist, and the test will fail if any are found.
      */
     private boolean checkForEmptyElements(Node n, int indent) {
-        int i;
         Node child;
         boolean passed;
 
@@ -359,6 +360,13 @@ public class TestValues extends TestSupport {
                     || findAttribute(n, "vers:forContentsSeeElement") != null
                     || findAttribute(n, "vers:forContentSeeOriginalDocumentAndEncoding") != null
                     || findAttribute(n, "vers:forContentsSeeOriginalDocumentAndEncoding") != null) {
+                return true;
+            }
+        }
+        
+        // if in migration mode, ignore some of the elements...
+        if (migration) {
+            if (n.getNodeName().equals("naa:Description")) {
                 return true;
             }
         }
@@ -398,7 +406,6 @@ public class TestValues extends TestSupport {
     int encNo; // encoding number for version 1 vers:Encoding elements
 
     private void findNames(Node n) {
-        int depth;
 
         // label all nodes
         docNo = 1;
@@ -478,7 +485,6 @@ public class TestValues extends TestSupport {
      * TestSupport elements for controlled values etc
      */
     private boolean checkInvalidValues(Node parent, Node n, int indent) {
-        int i;
         Node child;
         boolean passed;
 

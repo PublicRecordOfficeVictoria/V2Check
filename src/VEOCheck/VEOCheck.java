@@ -145,11 +145,11 @@ public class VEOCheck {
     /**
      * Constructor for headless mode.
      *
-     * @param dtd the dtd to use to validate the document (null if no
-     * validation)
+     * @param dtd the dtd to use to validate the document (null if no validation)
      * @param logLevel logging level (INFO = verbose, FINE = debug)
+     * @param migration true if migrating from old DSA - back off on some of the validation
      */
-    public VEOCheck(Path dtd, Level logLevel) {
+    public VEOCheck(Path dtd, Level logLevel, boolean migration) {
 
         // default logging
         LOG.getParent().setLevel(logLevel);
@@ -188,7 +188,7 @@ public class VEOCheck {
 
         // set up standard tests...
         parse = new ParseVEO(verbose, da, strict, oneLayer, out);
-        valueTester = new TestValues(verbose, strict, da, oneLayer, out);
+        valueTester = new TestValues(verbose, strict, da, oneLayer, migration, out);
         virusTester = new TestViruses(verbose, strict, da, oneLayer, out);
         signatureTester = new TestSignatures(verbose, debug, strict, da, oneLayer, out);
     }
@@ -266,6 +266,7 @@ public class VEOCheck {
                 case "-all": // perform all tests
                     testValues = true;
                     virusCheck = true;
+                    extract = true; // need to extract to test for viruses
                     testSignatures = true;
                     break;
                 case "-strict": // test strictly according to the standard
@@ -511,7 +512,7 @@ public class VEOCheck {
 
         // set up standard tests...
         parse = new ParseVEO(verbose, da, strict, oneLayer, out);
-        valueTester = new TestValues(verbose, strict, da, oneLayer, out);
+        valueTester = new TestValues(verbose, strict, da, oneLayer, false, out);
         virusTester = new TestViruses(verbose, strict, da, oneLayer, out);
         signatureTester = new TestSignatures(verbose, false, strict, da, oneLayer, out);
 
