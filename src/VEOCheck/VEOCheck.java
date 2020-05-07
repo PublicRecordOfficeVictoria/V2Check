@@ -145,9 +145,11 @@ public class VEOCheck {
     /**
      * Constructor for headless mode.
      *
-     * @param dtd the dtd to use to validate the document (null if no validation)
+     * @param dtd the dtd to use to validate the document (null if no
+     * validation)
      * @param logLevel logging level (INFO = verbose, FINE = debug)
-     * @param migration true if migrating from old DSA - back off on some of the validation
+     * @param migration true if migrating from old DSA - back off on some of the
+     * validation
      */
     public VEOCheck(Path dtd, Level logLevel, boolean migration) {
 
@@ -158,7 +160,11 @@ public class VEOCheck {
         // set globals
         headless = true;
         testSignatures = true;
-        testValues = true;
+        if (migration) {
+            testValues = false;
+        } else {
+            testValues = true;
+        }
         version1 = false;
         version2 = true;
         if (logLevel == Level.FINEST) {
@@ -366,9 +372,9 @@ public class VEOCheck {
                         result = result + " Usage: " + usage + "\r\n";
                     } else {
                         try {
-                        files.add(Paths.get(args[i]));
+                            files.add(Paths.get(args[i]));
                         } catch (InvalidPathException ipe) {
-                            result = result + "Invalid file name for VEO: "+ipe.getMessage()+"\r\n";
+                            result = result + "Invalid file name for VEO: " + ipe.getMessage() + "\r\n";
                             break;
                         }
                     }
@@ -505,7 +511,6 @@ public class VEOCheck {
         int i;
         Path veo;
 
-
         if (headless) {
             return;
         }
@@ -556,11 +561,11 @@ public class VEOCheck {
     private void check(Path file) throws VEOError {
         DirectoryStream<Path> ds;
         String filePath;
-        
+
         try {
             filePath = file.toFile().getCanonicalPath().toString();
-        } catch (IOException ioe){
-            throw new VEOError("Failed to identify file/directory '"+file.toString()+"' because: "+ioe.getMessage());
+        } catch (IOException ioe) {
+            throw new VEOError("Failed to identify file/directory '" + file.toString() + "' because: " + ioe.getMessage());
         }
 
         if (Files.isDirectory(file)) {
