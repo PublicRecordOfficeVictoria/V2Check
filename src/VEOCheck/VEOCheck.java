@@ -24,7 +24,9 @@ package VEOCheck;
  *
  *************************************************************
  */
+import VERSCommon.LTSF;
 import VERSCommon.VEOError;
+import VERSCommon.VEOFatal;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -93,6 +95,7 @@ public class VEOCheck {
     private boolean version2;
     private boolean verbose;
     private boolean debug;
+    private LTSF ltsfs;
 
     // tests
     private ParseVEO parse;
@@ -114,8 +117,10 @@ public class VEOCheck {
 
     /**
      * Constructor for testing outermost (first layer) of VEO.
+     * @param args command line arguments
+     * @throws VERSCommon.VEOFatal could not be constructed
      */
-    public VEOCheck() {
+    public VEOCheck(String args[]) throws VEOFatal {
         // default logging
         LOG.getParent().setLevel(Level.WARNING);
         LOG.setLevel(null);
@@ -140,6 +145,10 @@ public class VEOCheck {
         files = new ArrayList<>();
         outputFile = null;
         tempDir = Paths.get(".");
+        ltsfs = null;
+        
+        // parse commmand line arguments
+        parseCommandArgs(args);
     }
 
     /**
@@ -148,10 +157,11 @@ public class VEOCheck {
      * @param dtd the dtd to use to validate the document (null if no
      * validation)
      * @param logLevel logging level (INFO = verbose, FINE = debug)
+     * @param ltsfs long term sustainable formats
      * @param migration true if migrating from old DSA - back off on some of the
      * validation
      */
-    public VEOCheck(Path dtd, Level logLevel, boolean migration) {
+    public VEOCheck(Path dtd, Level logLevel, LTSF ltsfs, boolean migration) {
 
         // default logging
         LOG.getParent().setLevel(logLevel);
@@ -190,11 +200,12 @@ public class VEOCheck {
         files = new ArrayList<>();
         outputFile = null;
         tempDir = Paths.get(".");
+        this.ltsfs = ltsfs;
         out = new StringWriter();
 
         // set up standard tests...
         parse = new ParseVEO(verbose, da, strict, oneLayer, out);
-        valueTester = new TestValues(verbose, strict, da, oneLayer, migration, out);
+        valueTester = new TestValues(verbose, strict, da, oneLayer, this.ltsfs, migration, out);
         virusTester = new TestViruses(verbose, strict, da, oneLayer, out);
         signatureTester = new TestSignatures(verbose, debug, strict, da, oneLayer, out);
     }
@@ -215,6 +226,7 @@ public class VEOCheck {
      * <li>-useStdDtd use DTD from VERS web site
      * <li>-signatures perform tests on signatures
      * <li>-values perform tests on values
+     * <li>-f formatFile read the long term sustainable formats from formatFile
      * <li>-out &lt;file&gt; write test results to file
      * <li>-v1.2 force tests for version 1
      * <li>-v2 force tests for version 2
@@ -251,19 +263,18 @@ public class VEOCheck {
      *
      * @param args
      * @return
+     * @throws VERSCommon.VEOFatal
      */
-    public String parseCommandArgs(String args[]) {
+    public void parseCommandArgs(String args[]) throws VEOFatal {
         int i;
-        String result = new String();
-        String usage = "VEOCheck [-all] [-strict] [-da] [-extract] [-virus] [-eicar] [-parseVEO] [-useStdDTD] [-dtd <dtdFile>] [-oneLayer] [-signatures] [-values] [-v1.2|-v2] [-virus] [-verbose] [-debug] [-out <file>] [-t <tempDir>] <files>+";
+        String usage = "VEOCheck [-all] -f LTSFFile [-strict] [-da] [-extract] [-virus] [-eicar] [-parseVEO] [-useStdDTD] [-dtd <dtdFile>] [-oneLayer] [-signatures] [-values] [-v1.2|-v2] [-virus] [-verbose] [-debug] [-out <file>] [-t <tempDir>] <files>+";
 
         // not in headless mode...
         headless = false;
 
         // must have at least one command argument...
         if (args.length == 0) {
-            System.err.println("Usage: " + usage);
-            System.exit(-1);
+            throw new VEOFatal("No arguments. Usage: " + usage);
         }
 
         // go through list of command arguments
@@ -291,11 +302,20 @@ public class VEOCheck {
                 case "-d": // delay for virus checking
                     i++;
                     if (i == args.length) {
-                        result = result + "Missing integer after '-d'";
-                        result = result + " Usage: " + usage + "\r\n";
-                        break;
+                        throw new VEOFatal("Missing integer after '-d'\nUsage: " + usage);
                     }
                     delay = Integer.parseInt(args[i]);
+                    break;
+                case "-f": // specify a format file
+                    i++;
+                    if (i == args.length) {
+                        throw new VEOFatal("Missing format file after '-f'\nUsage: " + usage);
+                    }
+                    try {
+                        ltsfs = new LTSF(Paths.get(args[i]));
+                    } catch (VEOError ve) {
+                        throw new VEOFatal("Could not parse format file '" + args[i] + "' due to: " + ve.getMessage());
+                    }
                     break;
                 case "-eicar": // use the EICAR testing method rather than seeing if the mcshield software is running
                     extract = true;
@@ -309,20 +329,18 @@ public class VEOCheck {
                     if (dtd == null) {
                         useStdDtd = true;
                     } else {
-                        result = result + "Cannot use '-dtd' and '-usestddtd' together";
+                        throw new VEOFatal("Cannot use '-dtd' and '-usestddtd' together");
                     }
                     break;
                 case "-dtd": // specify output file
                     i++;
                     if (i == args.length) {
-                        result = result + "Missing dtd file after '-dtd'";
-                        result = result + " Usage: " + usage + "\r\n";
-                        break;
+                        throw new VEOFatal("Missing dtd file after '-dtd'\nUsage: " + usage);
                     }
                     dtd = Paths.get(args[i]);
                     if (useStdDtd) {
                         useStdDtd = false;
-                        result = result + "Cannot use '-dtd' and '-usestddtd' together";
+                        throw new VEOFatal("Cannot use '-dtd' and '-usestddtd' together");
                     }
                     break;
                 case "-signatures": // test signatures in VEO
@@ -351,37 +369,35 @@ public class VEOCheck {
                 case "-out": // specify output file
                     i++;
                     if (i == args.length) {
-                        result = result + "Missing output file after '-out'";
-                        result = result + " Usage: " + usage + "\r\n";
-                        break;
+                        throw new VEOFatal("Missing output file after '-out'\nUsage: " + usage);
                     }
                     outputFile = Paths.get(args[i]);
                     break;
                 case "-t": // specify a directory in which to put the extracted content
                     i++;
                     if (i == args.length) {
-                        result = result + "Missing temporary directory after '-t'";
-                        result = result + " Usage: " + usage + "\r\n";
-                        break;
+                        throw new VEOFatal("Missing temporary directory after '-t'\nUsage: " + usage);
                     }
                     tempDir = Paths.get(args[i]);
                     break;
                 default: // anything not starting with a '-' is a VEO
                     if (args[i].charAt(0) == '-') {
-                        result = result + "Unknown argument: '" + args[i] + "'\r\n";
-                        result = result + " Usage: " + usage + "\r\n";
+                        throw new VEOFatal("Unknown argument: '" + args[i] + "\nUsage: " + usage);
                     } else {
                         try {
                             files.add(Paths.get(args[i]));
                         } catch (InvalidPathException ipe) {
-                            result = result + "Invalid file name for VEO: " + ipe.getMessage() + "\r\n";
-                            break;
+                            throw new VEOFatal("Invalid file name for VEO: " + ipe.getMessage());
                         }
                     }
                     break;
             }
         }
-        return result;
+
+        // sanity check
+        if (ltsfs == null) {
+            throw new VEOFatal("No LTSF file specified.\nUsage: " + usage);
+        }
     }
 
     /**
@@ -517,7 +533,7 @@ public class VEOCheck {
 
         // set up standard tests...
         parse = new ParseVEO(verbose, da, strict, oneLayer, out);
-        valueTester = new TestValues(verbose, strict, da, oneLayer, false, out);
+        valueTester = new TestValues(verbose, strict, da, oneLayer, this.ltsfs, false, out);
         virusTester = new TestViruses(verbose, strict, da, oneLayer, out);
         signatureTester = new TestSignatures(verbose, false, strict, da, oneLayer, out);
 
@@ -943,18 +959,20 @@ public class VEOCheck {
      */
     public static void main(String args[]) {
         VEOCheck vc;
-
-        vc = new VEOCheck();
-        System.err.println(vc.parseCommandArgs(args));
-        vc.openOutputFile();
+        
+        vc = null;
         try {
+            vc = new VEOCheck(args);
+            vc.openOutputFile();
             vc.printHeader();
             vc.testVEOs();
         } catch (IOException | VEOError e) {
-            vc.closeOutputFile();
-            System.err.println(e.toString());
+            System.err.println(e.getMessage());
             System.exit(-1);
+        } finally {
+            if (vc != null) {
+                vc.closeOutputFile();
+            }
         }
-        vc.closeOutputFile();
     }
 }
