@@ -3,7 +3,6 @@
  * Licensed under the CC-BY license http://creativecommons.org/licenses/by/3.0/au/
  * Author Andrew Waugh
  */
-
 package VEOCheck;
 
 /**
@@ -15,7 +14,7 @@ package VEOCheck;
  * format (to aid checking) and checks that there are no empty elements.
  *
  * Andrew Waugh Copyright 2005 PROV
- * 
+ *
  * <ul>
  * <li> 9.8.06 Fixed bugs: Did not check that a vers:DateTimeClosed was present
  * in a File VEO; required vers:AgencyIdentifier and vers:SeriesIdentifier to be
@@ -23,14 +22,15 @@ package VEOCheck;
  * <li> 14.4.10 Fixed bugs: When testing naa:SchemeType and checking for
  * vers:Subject or vers:Function only went up to the parent node (vers:Title)
  * not the grandparent (vers:RecordMetadata)
- * <li> 11.5.10 Fixed bug: When checking naa:SecurityClassification, only checked
- * the first four assigned values.
+ * <li> 11.5.10 Fixed bug: When checking naa:SecurityClassification, only
+ * checked the first four assigned values.
  * <li> 27.10.14 Added checking for additional formats in new VERS standard.
-  * <li>20150518 Imported into NetBeans.
- * </ul>
- *************************************************************
+ * <li>20150518 Imported into NetBeans.
+ * </ul> ************************************************************
  */
 import VERSCommon.LTSF;
+import VERSCommon.ResultSummary;
+import VERSCommon.ResultSummary.Type;
 import java.io.Writer;
 import java.util.HashMap;
 import java.util.logging.Logger;
@@ -48,18 +48,18 @@ public class TestValues extends TestSupport {
     String thisLayerVersion;    // version according vers:Version
     String thisLayerType;	// type of VEO according to vers:ObjectType
     String originalVEOType;	// original type of VEO according to
-                                // the vers:originalVEOType attribute
+    // the vers:originalVEOType attribute
     boolean inRevisedVEO;	// true if in a vers:RevisedVEO element
     boolean inOriginalVEO;	// true if in a vers:OriginalVEO element
     String schemeType;          // type of title scheme
     String currentContext;	// current context of VEO
-    HashMap<String,Node> nodeLabels; // hash table of vers:id
+    HashMap<String, Node> nodeLabels; // hash table of vers:id
     LTSF ltsfs;                 // list of valid formats
     boolean migration;          // true if migrating from old DSA - back off on some of the validation
-    
+
     // Logging
     private final static Logger LOG = Logger.getLogger("VEOCheck.TestValues");
-    
+
     /**
      * Constructor
      *
@@ -68,11 +68,12 @@ public class TestValues extends TestSupport {
      * @param da
      * @param oneLayer
      * @param validFormats
-     * @param migration true if migrating from old DSA - back off on some of the validation
+     * @param migration true if migrating from old DSA - back off on some of the
+     * validation
      * @param out
      */
-    public TestValues(boolean verbose, boolean strict, boolean da, boolean oneLayer, LTSF ltsfs, boolean migration, Writer out) {
-        super(verbose, strict, da, oneLayer, out);
+    public TestValues(boolean verbose, boolean strict, boolean da, boolean oneLayer, LTSF ltsfs, boolean migration, Writer out, ResultSummary results) {
+        super(verbose, strict, da, oneLayer, out, results);
         errorMsg = new StringBuffer();
 
         forceVersion = null;
@@ -117,7 +118,7 @@ public class TestValues extends TestSupport {
      * @param veo the VEO to check
      * @return true if parse succeeded
      */
-    public boolean performTest(Element veo) {
+    public boolean performTest(String filename, Element veo) {
         String s;
 
         // reset globals
@@ -132,6 +133,7 @@ public class TestValues extends TestSupport {
         inRevisedVEO = false;
         inOriginalVEO = false;
         schemeType = null;
+        this.filename = filename;
         nodeLabels.clear();
 
         // output test header
@@ -164,7 +166,7 @@ public class TestValues extends TestSupport {
         if (checkForEmptyElements(veo, 1)) {
             passed("The VEO contained no empty elements");
         } else {
-            failed("The VEO contained the following empty elements:");
+            failed("The VEO contained the following empty elements:", false);
         }
 
         // check values for validity against specification
@@ -173,7 +175,7 @@ public class TestValues extends TestSupport {
         if (checkInvalidValues(null, veo, 1)) {
             passed("The VEO contained no invalid elements");
         } else {
-            failed("The VEO contained the following invalid elements");
+            failed("The VEO contained the following invalid elements", false);
         }
         return success;
     }
@@ -284,7 +286,7 @@ public class TestValues extends TestSupport {
         // node is an element... print element name and then contents
         if (n.getNodeType() == Node.ELEMENT_NODE) {
 
-		// suppress empty elements (i.e. things with no value)
+            // suppress empty elements (i.e. things with no value)
             // if (elementIsEmpty(n))
             //	return false;
             // print out element name
@@ -301,7 +303,7 @@ public class TestValues extends TestSupport {
                 return true;
             }
 
-		// for a document data element, suppress the value if it is
+            // for a document data element, suppress the value if it is
             // a normal value, or if it is an onion VEO but only testing
             // one layer
             if (n.getNodeName().equals("vers:DocumentData")) {
@@ -313,7 +315,7 @@ public class TestValues extends TestSupport {
                 }
             }
 
-		// for a vers:OriginalVEO element, suppress the value if we
+            // for a vers:OriginalVEO element, suppress the value if we
             // are only testing one layer
             if (n.getNodeName().equals("vers:OriginalVEO") && oneLayer) {
                 print("(only testing one layer)");
@@ -352,8 +354,8 @@ public class TestValues extends TestSupport {
             return true;
         }
 
-	// ignore vers:Text elements
-	/*
+        // ignore vers:Text elements
+        /*
          if (n.getNodeName().equals("vers:Text"))
          return true;
          */
@@ -366,7 +368,7 @@ public class TestValues extends TestSupport {
                 return true;
             }
         }
-        
+
         // if in migration mode, ignore some of the elements...
         if (migration) {
             if (n.getNodeName().equals("naa:Description")) {
@@ -694,7 +696,7 @@ public class TestValues extends TestSupport {
         // check for moving into an inner layer of V1 onion VEO
         layer++;
 
-	// set version and type for this layer
+        // set version and type for this layer
         // if tester is forcing version of outer layer, over-ride
         // version in vers:Version
         if (forceVersion != null && layer == 1) {
@@ -723,7 +725,7 @@ public class TestValues extends TestSupport {
             passed = false;
         }
 
-	// if v2, check for signature block and at least one lock
+        // if v2, check for signature block and at least one lock
         // signature block
         if (thisLayerVersion.equals("2.0")) {
             if (!testElementExists(n, "vers:SignatureBlock")) {
@@ -756,7 +758,7 @@ public class TestValues extends TestSupport {
             passed = false;
         }
 
-	// if tester is forcing version of outer layer, over-ride
+        // if tester is forcing version of outer layer, over-ride
         // version in vers:Version
         if (forceVersion != null && layer == 1) {
             thisLayerVersion = forceVersion;
@@ -887,7 +889,7 @@ public class TestValues extends TestSupport {
             passed = false;
         }
 
-	// error if version 2 and vers:VEOVersion attribute not present
+        // error if version 2 and vers:VEOVersion attribute not present
         // or not '2.0'
         if (thisLayerVersion.equals("2.0")) {
             a = findAttribute(n, "vers:VEOVersion");
@@ -1019,7 +1021,7 @@ public class TestValues extends TestSupport {
             passed = false;
         }
 
-	// second and later vers:ModifiedVEO elements must have the same
+        // second and later vers:ModifiedVEO elements must have the same
         // value as the first
         if (s != null && !equals(originalVEOType, s)) {
             startAttrError(n, 156, attr, true);
@@ -1091,9 +1093,9 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:SecurityClassification (130)
-     * 20191209 - Added the classifications Unofficial to Personal Privacy
-     * 20200205 - Forced a relaxed test of equality a/c transfer request
+     * TestSupport a vers:SecurityClassification (130) 20191209 - Added the
+     * classifications Unofficial to Personal Privacy 20200205 - Forced a
+     * relaxed test of equality a/c transfer request
      */
     boolean testSecurityClassification(Node n) {
         boolean passed = true;
@@ -1225,8 +1227,8 @@ public class TestValues extends TestSupport {
 
     /**
      * TestSupport a vers:Date (185)
-
- ajw 9/8/06. Method added to ensure that vers:DateTimeClosed is present in
+     *
+     * ajw 9/8/06. Method added to ensure that vers:DateTimeClosed is present in
      * a file VEO.
      */
     boolean testVERSDate(Node n) {
@@ -1339,9 +1341,9 @@ public class TestValues extends TestSupport {
 
     /**
      * TestSupport a vers:VEOIdentifier (230)
-
- ajw 9/8/06 doesn't test for vers:AgencyIdentifier and
- vers:SeriesIdentifier if in a naa:RelatedItemId. Required adding context
+     *
+     * ajw 9/8/06 doesn't test for vers:AgencyIdentifier and
+     * vers:SeriesIdentifier if in a naa:RelatedItemId. Required adding context
      * (parent) node.
      */
     boolean testVEOIdentifier(Node parent, Node n) {
@@ -1417,64 +1419,64 @@ public class TestValues extends TestSupport {
         }
         return passed;
     }
-    
+
     /**
      * These are the magic strings for the format types specified in PROS 19/05
      * S3. These should be read from the same source as used for V3 VEOs, but
-     * are specified separately here for two reasons: 1) minimise maintenance
-     * of code in V2, and 2) V2 allows MIME types, but V3 doesn't.
+     * are specified separately here for two reasons: 1) minimise maintenance of
+     * code in V2, and 2) V2 allows MIME types, but V3 doesn't.
      */
     static String ltpf[] = {
-        ".txt", ".docx", ".doc", ".odt", ".pdf", 
-"text/plain",
-"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-"application/msword",
-"vnd.ms-word.document.macroEnabled",
-"application/vnd.oasis.opendocument.text",
-"application/pdf",
-".xlsx", ".xls", ".ods", ".csv", ".tsv", 
-"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
-"application/vnd.ms-excel", 
-"application/vnd.oasis.opendocument.spreadsheet", 
-"text/csv", 
-".pptx", ".ppt", ".odp", 
-"application/vnd.openxmlformats-officedocument.presentationml.presentation", 
-"application/vnd.ms-powerpoint",
-"application/vnd.oasis.opendocument.presentation", 
-".tif", ".tiff", ".jpg", ".jpeg", ".jp2", ".png", ".dng",
-"image/tif", "application/tif", "application/tiff", 
-"image/jpeg", "image/jpg", "application/jpg", 
-"image/jp2", "image/jpeg2000",
-"image/png", 
-".svg", ".odg", 
-"image/svg+xml", "application/vnd.oasis.opendocument.graphics", 
-".wav", ".bwav", ".bwf", ".mp3", ".mp4", ".flac", 
-"audio/wav", "audio/wave", "audio/mp3", "audio/mpg", "audio/mp4", "audio/flac", 
-".ogg", ".ogv", ".dcp", ".mpg", ".mpeg", ".m4v", ".m4a", ".f4v", ".f4a", 
-"application/ogg", "video/mp4", 
-".mjp", ".mj2", ".m2v", ".dpx", 
-"video/mj2", 
-".jsn", ".json", ".siard", 
-"text/json", 
-".epub", 
-".zip", ".gzip", ".tar", 
-"application/zip", 
-".dxf", ".dwg", ".stp", ".step", ".p21", 
-"image/vnd.dxf", "image/vnd.dwg", 
-".shp", ".shx", ".dbf", ".cpg", ".prj", ".sbn", ".sbx", 
-".gpkg", ".geojson", ".dem", ".gml", ".kml", ".kmz", ".ecw", ".las", ".img", 
-"application/vnd.google-earth.kml+xml", "application/vnd.las", 
-".eml", ".mbx", ".mbox", ".msg", ".pst", 
-"message/rfc822", "application/mbox", "application/vnd.ms-outlook", 
-".htm", ".html", ".xml", ".css", ".xsd", ".dtd", ".warc", ".arc", 
-"text/html", "text/xml", "application/xml", "text/css", "application/warc",
-"application/xhtml-dtd",
-".cgm"
+        ".txt", ".docx", ".doc", ".odt", ".pdf",
+        "text/plain",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/msword",
+        "vnd.ms-word.document.macroEnabled",
+        "application/vnd.oasis.opendocument.text",
+        "application/pdf",
+        ".xlsx", ".xls", ".ods", ".csv", ".tsv",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-excel",
+        "application/vnd.oasis.opendocument.spreadsheet",
+        "text/csv",
+        ".pptx", ".ppt", ".odp",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/vnd.ms-powerpoint",
+        "application/vnd.oasis.opendocument.presentation",
+        ".tif", ".tiff", ".jpg", ".jpeg", ".jp2", ".png", ".dng",
+        "image/tif", "application/tif", "application/tiff",
+        "image/jpeg", "image/jpg", "application/jpg",
+        "image/jp2", "image/jpeg2000",
+        "image/png",
+        ".svg", ".odg",
+        "image/svg+xml", "application/vnd.oasis.opendocument.graphics",
+        ".wav", ".bwav", ".bwf", ".mp3", ".mp4", ".flac",
+        "audio/wav", "audio/wave", "audio/mp3", "audio/mpg", "audio/mp4", "audio/flac",
+        ".ogg", ".ogv", ".dcp", ".mpg", ".mpeg", ".m4v", ".m4a", ".f4v", ".f4a",
+        "application/ogg", "video/mp4",
+        ".mjp", ".mj2", ".m2v", ".dpx",
+        "video/mj2",
+        ".jsn", ".json", ".siard",
+        "text/json",
+        ".epub",
+        ".zip", ".gzip", ".tar",
+        "application/zip",
+        ".dxf", ".dwg", ".stp", ".step", ".p21",
+        "image/vnd.dxf", "image/vnd.dwg",
+        ".shp", ".shx", ".dbf", ".cpg", ".prj", ".sbn", ".sbx",
+        ".gpkg", ".geojson", ".dem", ".gml", ".kml", ".kmz", ".ecw", ".las", ".img",
+        "application/vnd.google-earth.kml+xml", "application/vnd.las",
+        ".eml", ".mbx", ".mbox", ".msg", ".pst",
+        "message/rfc822", "application/mbox", "application/vnd.ms-outlook",
+        ".htm", ".html", ".xml", ".css", ".xsd", ".dtd", ".warc", ".arc",
+        "text/html", "text/xml", "application/xml", "text/css", "application/warc",
+        "application/xhtml-dtd",
+        ".cgm"
     };
 
     /**
-     * TestSupport a vers:Document (270)
-     * The source for the MIME types is the official IANA list
+     * TestSupport a vers:Document (270) The source for the MIME types is the
+     * official IANA list
      * http://www.iana.org/assignments/media-types/media-types.xhtml#text, which
      * has been checked against the Library of Congress files type information
      * http://www.digitalpreservation.gov/formats
@@ -1489,7 +1491,7 @@ public class TestValues extends TestSupport {
         boolean foundLtpf;
         StringBuffer fmtsFound;
 
-	// test to see if Document contains a valid long term preservation
+        // test to see if Document contains a valid long term preservation
         // format encoding
         nl = ((Element) n).getElementsByTagName("vers:RenderingKeywords");
         foundLtpf = false;
@@ -1506,7 +1508,7 @@ public class TestValues extends TestSupport {
                     break;
                 }
             }
-            */
+             */
         }
         if (!foundLtpf) {
             startError(10, "Document without Long Term Preservation Format");
@@ -1561,7 +1563,7 @@ public class TestValues extends TestSupport {
             return passed;
         }
 
-	// the following tests are performed for version 2
+        // the following tests are performed for version 2
         // check version id attribute
         if (!checkVersId(n, 114)) {
             passed = false;
@@ -1650,8 +1652,7 @@ public class TestValues extends TestSupport {
         }
         return false;
     }
-    */
-
+     */
     /**
      * TestSupport a vers:DocumentRightsManagement (280)
      */
@@ -1898,7 +1899,7 @@ public class TestValues extends TestSupport {
         }
         return value.equals(s1);
     }
-    
+
     /**
      * Check the value in the node against the required value, always ignoring
      * case. If test fails, add required value as an option in the error message
@@ -1924,8 +1925,8 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport to see if an element has at least one immediate subordinate of the
- specified type
+     * TestSupport to see if an element has at least one immediate subordinate
+     * of the specified type
      *
      * @param element	the element node to be searched
      * @param name	the name of the element to be found
@@ -1949,9 +1950,9 @@ public class TestValues extends TestSupport {
 
     /**
      * TestSupport to see if an attribute has a specified value
-
- An error is raised if the attribute is not found, or if it does not have
- one of the valid values
+     *
+     * An error is raised if the attribute is not found, or if it does not have
+     * one of the valid values
      *
      * @param n	the element node the attribute is to be found in
      * @param name	the name of the attribute to find
@@ -2442,5 +2443,8 @@ public class TestValues extends TestSupport {
      */
     void confirmError() {
         print(errorMsg.toString() + "\r\n");
+        if (results != null) {
+            results.recordResult(Type.ERROR, "FAILURE: INVALID VALUE: " + errorMsg.toString(), filename, null);
+        }
     }
 }

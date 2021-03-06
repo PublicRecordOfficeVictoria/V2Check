@@ -22,6 +22,7 @@ package VEOCheck;
  *
  *************************************************************
  */
+import VERSCommon.ResultSummary;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -57,8 +58,8 @@ public class ParseVEO extends TestSupport {
      * @param out StringBuilder to capture results of test
      */
     public ParseVEO(boolean verbose, boolean strict,
-            boolean da, boolean oneLayer, Writer out) {
-        super(verbose, strict, da, oneLayer, out);
+            boolean da, boolean oneLayer, Writer out, ResultSummary results) {
+        super(verbose, strict, da, oneLayer, out, results);
 
         DocumentBuilderFactory dbf;
 
@@ -108,7 +109,8 @@ public class ParseVEO extends TestSupport {
     /**
      * Parses the VEO, checking for conformance to the DTD.
      *
-     * @param f file containing the VEO
+     * @param filename the filename of the original VEO
+     * @param f file containing the extracted VEO
      * @param dtd file containing the DTD to validate against
      * @param useStdDtd if true, use the DTD from the web site
      * @return true if parse suceeded
@@ -116,7 +118,7 @@ public class ParseVEO extends TestSupport {
      * ajw 20060809 Added information in error message to ensure user thinks about
      * connecting to the network when using -useStdDtd
      */
-    public boolean performTest(File f, Path dtd, boolean useStdDtd) {
+    public boolean performTest(String filename, File f, Path dtd, boolean useStdDtd) {
         NodeList nl;
         Node n;
         Document d;
@@ -125,6 +127,7 @@ public class ParseVEO extends TestSupport {
         InputSource is;
 
         printTestHeader("Parsing VEO");
+        this.filename = filename;
 
         // Force the reading of the DTD from the file specified. This is called
         // when the parser needs to resolve an external entity. We check that
@@ -158,10 +161,10 @@ public class ParseVEO extends TestSupport {
         } catch (IOException e) {
             failed("IOException when parsing document: " + e.getMessage()
                     + ". Note: if -useStdDtd command line option is being "
-                    + "used, the computer must be connected to the network.");
+                    + "used, the computer must be connected to the network.", true);
             return false;
         } catch (SAXException e) {
-            failed("SAXException when parsing document: " + e.getMessage());
+            failed("SAXException when parsing document: " + e.getMessage(), true);
             return false;
         } finally {
             try {

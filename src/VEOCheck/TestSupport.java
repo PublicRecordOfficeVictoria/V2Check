@@ -3,7 +3,6 @@
  * Licensed under the CC-BY license http://creativecommons.org/licenses/by/3.0/au/
  * Author Andrew Waugh
  */
-
 package VEOCheck;
 
 /**
@@ -27,6 +26,7 @@ package VEOCheck;
  */
 import org.w3c.dom.*;
 import VERSCommon.*;
+import VERSCommon.ResultSummary.Type;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -53,6 +53,8 @@ public abstract class TestSupport {
 
     // logging
     private final static Logger LOG = Logger.getLogger("VEOCheck.TestSupport");
+    String filename;                 // file currently being tested
+    protected ResultSummary results; // collector of all the results
 
     /**
      * Base constructor
@@ -63,7 +65,7 @@ public abstract class TestSupport {
      * @param oneLayer
      * @param out
      */
-    public TestSupport(boolean verbose, boolean strict, boolean da, boolean oneLayer, Writer out) {
+    public TestSupport(boolean verbose, boolean strict, boolean da, boolean oneLayer, Writer out, ResultSummary results) {
         this.verbose = verbose;
         this.strict = strict;
         this.da = da;
@@ -72,6 +74,7 @@ public abstract class TestSupport {
         test = "";
         details = new StringBuffer();
         success = true;
+        this.results = results;
     }
 
     /**
@@ -131,20 +134,28 @@ public abstract class TestSupport {
         details.setLength(0);
     }
 
-    protected void failed(String mesg) {
+    protected void failed(String mesg, boolean incInSummary) {
+        StringBuilder sb;
+
+        sb = new StringBuilder();
+        sb.append("FAILURE: ");
+        sb.append(test);
+        sb.append(": ");
+        sb.append(mesg);
+        if (mesg.length() > 0) {
+            sb.append(": ");
+        }
+        sb.append(details.toString());
         try {
-            out.write("FAILURE: ");
-            out.write(test);
-            out.write(": ");
-            out.write(mesg);
-            if (mesg.length() > 0) {
-                out.write(": ");
-            }
-            out.write(details.toString());
+            out.write(sb.toString());
             out.write("\r\n");
         } catch (IOException ioe) {
             LOG.log(Level.WARNING, "VEOCheck.failed(): failed:  {0}", new Object[]{ioe.toString()});
         }
+        if (incInSummary && results != null) {
+            results.recordResult(Type.ERROR, sb.toString(), filename, null);
+        }
+
         success = false;
         test = "";
         details.setLength(0);
@@ -324,7 +335,7 @@ public abstract class TestSupport {
         // get first instance of requested element
         n = nl.item(0);
         if (n.getNodeType() != Node.ELEMENT_NODE) {
-            LOG.log(Level.WARNING, "*****PANIC in VEOCheck.VEOTest.getElementContents(): Error in DOM; Looking for {0}", new Object[] {tag});
+            LOG.log(Level.WARNING, "*****PANIC in VEOCheck.VEOTest.getElementContents(): Error in DOM; Looking for {0}", new Object[]{tag});
             return null;
         }
         return n;
@@ -363,7 +374,7 @@ public abstract class TestSupport {
             osw.close();
             r = b64c.fromBase64(baos.toByteArray());
         } catch (IOException ioe) {
-            LOG.log(Level.WARNING, "*****PANIC in VEOCheck.VEOTest.getElementContents(): {0}", new Object[] {ioe.toString()});
+            LOG.log(Level.WARNING, "*****PANIC in VEOCheck.VEOTest.getElementContents(): {0}", new Object[]{ioe.toString()});
             return (byte[]) null;
         }
         return r;
@@ -376,7 +387,7 @@ public abstract class TestSupport {
      */
     protected void pdebug(String s) {
         int t;
-        
+
         t = (int) Math.floor(System.currentTimeMillis() / 1000);
         LOG.log(Level.WARNING, "{0} {1}", new Object[]{t, s});
     }

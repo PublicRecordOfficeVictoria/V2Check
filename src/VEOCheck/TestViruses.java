@@ -15,6 +15,7 @@ package VEOCheck;
  *
  *************************************************************
  */
+import VERSCommon.ResultSummary;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,8 +37,8 @@ public class TestViruses extends TestSupport {
      * @param out
      */
     public TestViruses(boolean verbose, boolean strict,
-            boolean da, boolean oneLayer, Writer out) {
-        super(verbose, strict, da, oneLayer, out);
+            boolean da, boolean oneLayer, Writer out, ResultSummary results) {
+        super(verbose, strict, da, oneLayer, out, results);
     }
 
     /**
@@ -59,12 +60,14 @@ public class TestViruses extends TestSupport {
      * work
      * @return true if the test succeeded
      */
-    public boolean performTest(ArrayList<String> files, int delay) {
+    public boolean performTest(String filename, ArrayList<String> files, int delay) {
         String file;
         Path p;
         int i;
         boolean fail;
 
+        this.filename = filename;
+        
         startSubTest("TESTING FOR VIRUSES");
         success = true;
         
@@ -89,7 +92,7 @@ public class TestViruses extends TestSupport {
         if (!fail) {
             passed("No viruses found");
         } else {
-            failed("");
+            failed("", true);
         }
         return fail;
     }

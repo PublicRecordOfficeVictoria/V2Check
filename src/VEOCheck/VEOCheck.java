@@ -25,6 +25,7 @@ package VEOCheck;
  *************************************************************
  */
 import VERSCommon.LTSF;
+import VERSCommon.ResultSummary;
 import VERSCommon.VEOError;
 import VERSCommon.VEOFatal;
 import java.io.BufferedReader;
@@ -111,12 +112,14 @@ public class VEOCheck {
 
     // where to write results etc
     private Writer out;
+    private ResultSummary results;
 
     // logging
     private final static Logger LOG = Logger.getLogger("VEOCheck.VEOCheck");
 
     /**
      * Constructor for testing outermost (first layer) of VEO.
+     *
      * @param args command line arguments
      * @throws VERSCommon.VEOFatal could not be constructed
      */
@@ -146,7 +149,8 @@ public class VEOCheck {
         outputFile = null;
         tempDir = Paths.get(".");
         ltsfs = null;
-        
+        results = null;
+
         // parse commmand line arguments
         parseCommandArgs(args);
     }
@@ -160,8 +164,9 @@ public class VEOCheck {
      * @param ltsfs long term sustainable formats
      * @param migration true if migrating from old DSA - back off on some of the
      * validation
+     * @param results if not null, summarise error messages here
      */
-    public VEOCheck(Path dtd, Level logLevel, LTSF ltsfs, boolean migration) {
+    public VEOCheck(Path dtd, Level logLevel, LTSF ltsfs, boolean migration, ResultSummary results) {
 
         // default logging
         LOG.getParent().setLevel(logLevel);
@@ -170,11 +175,7 @@ public class VEOCheck {
         // set globals
         headless = true;
         testSignatures = true;
-        if (migration) {
-            testValues = false;
-        } else {
-            testValues = true;
-        }
+        testValues = !migration;
         version1 = false;
         version2 = true;
         if (logLevel == Level.FINEST) {
@@ -202,12 +203,13 @@ public class VEOCheck {
         tempDir = Paths.get(".");
         this.ltsfs = ltsfs;
         out = new StringWriter();
+        this.results = results;
 
         // set up standard tests...
-        parse = new ParseVEO(verbose, da, strict, oneLayer, out);
-        valueTester = new TestValues(verbose, strict, da, oneLayer, this.ltsfs, migration, out);
-        virusTester = new TestViruses(verbose, strict, da, oneLayer, out);
-        signatureTester = new TestSignatures(verbose, debug, strict, da, oneLayer, out);
+        parse = new ParseVEO(verbose, da, strict, oneLayer, out, results);
+        valueTester = new TestValues(verbose, strict, da, oneLayer, this.ltsfs, migration, out, results);
+        virusTester = new TestViruses(verbose, strict, da, oneLayer, out, results);
+        signatureTester = new TestSignatures(verbose, debug, strict, da, oneLayer, out, results);
     }
 
     /**
@@ -233,6 +235,7 @@ public class VEOCheck {
      * <li>-verbose verbose output
      * <li>-oneLayer test only the outer layer
      * <li>-debug output debug information
+     * <li>-sr produce summary report of all errors
      * </ul>
      * Any argument that does not begin with a '-' character is assumed to be
      * the name of a VEO to check
@@ -262,12 +265,11 @@ public class VEOCheck {
      * </ul>
      *
      * @param args
-     * @return
      * @throws VERSCommon.VEOFatal
      */
-    public void parseCommandArgs(String args[]) throws VEOFatal {
+    final public void parseCommandArgs(String args[]) throws VEOFatal {
         int i;
-        String usage = "VEOCheck [-all] -f LTSFFile [-strict] [-da] [-extract] [-virus] [-eicar] [-parseVEO] [-useStdDTD] [-dtd <dtdFile>] [-oneLayer] [-signatures] [-values] [-v1.2|-v2] [-virus] [-verbose] [-debug] [-out <file>] [-t <tempDir>] <files>+";
+        String usage = "VEOCheck [-all] -f LTSFFile [-strict] [-da] [-extract] [-virus] [-eicar] [-parseVEO] [-useStdDTD] [-dtd <dtdFile>] [-oneLayer] [-signatures] [-sr] [-values] [-v1.2|-v2] [-virus] [-verbose] [-debug] [-out <file>] [-t <tempDir>] <files>+";
 
         // not in headless mode...
         headless = false;
@@ -348,6 +350,9 @@ public class VEOCheck {
                     break;
                 case "-values": // test values in VEO
                     testValues = true;
+                    break;
+                case "-sr":
+                    results = new ResultSummary();
                     break;
                 case "-v1.2": // force version 1.2 or 2.0 processing
                     version1 = true;
@@ -508,7 +513,10 @@ public class VEOCheck {
             out.write("Verbose output, ");
         }
         if (debug) {
-            out.write("Debug output ");
+            out.write("Debug output, ");
+        }
+        if (results != null) {
+            out.write("Produce summary report ");
         }
         out.write("\r\n");
         out.write("\r\n");
@@ -532,10 +540,10 @@ public class VEOCheck {
         }
 
         // set up standard tests...
-        parse = new ParseVEO(verbose, da, strict, oneLayer, out);
-        valueTester = new TestValues(verbose, strict, da, oneLayer, this.ltsfs, false, out);
-        virusTester = new TestViruses(verbose, strict, da, oneLayer, out);
-        signatureTester = new TestSignatures(verbose, false, strict, da, oneLayer, out);
+        parse = new ParseVEO(verbose, da, strict, oneLayer, out, results);
+        valueTester = new TestValues(verbose, strict, da, oneLayer, this.ltsfs, false, out, results);
+        virusTester = new TestViruses(verbose, strict, da, oneLayer, out, results);
+        signatureTester = new TestSignatures(verbose, false, strict, da, oneLayer, out, results);
 
         // if a temporary directory is specified, open it (create if necessary)
         if (tempDir != null) {
@@ -570,6 +578,18 @@ public class VEOCheck {
         // check that the virus checking software is STILL running
         checkVirusScannerRunning(tempDir, true);
     }
+    
+    /**
+     * Print a summary of the results on the Writer out.
+     * 
+     * @throws IOException 
+     */
+    public void produceSummaryReport() throws IOException {
+        if (headless || results == null || out == null) {
+            return;
+        }
+        results.report(out);
+    }
 
     /**
      * Recurse checking files
@@ -579,7 +599,7 @@ public class VEOCheck {
         String filePath;
 
         try {
-            filePath = file.toFile().getCanonicalPath().toString();
+            filePath = file.toFile().getCanonicalPath();
         } catch (IOException ioe) {
             throw new VEOError("Failed to identify file/directory '" + file.toString() + "' because: " + ioe.getMessage());
         }
@@ -662,7 +682,7 @@ public class VEOCheck {
         }
 
         // first parse the file; if it fails return and stop this test
-        if (!parse.performTest(p1.toFile(), dtd, useStdDtd)) {
+        if (!parse.performTest(filename, p1.toFile(), dtd, useStdDtd)) {
             if (!parseVEO) {
                 Files.delete(p1);
             }
@@ -677,17 +697,17 @@ public class VEOCheck {
             } else if (version2) {
                 valueTester.setContext("2.0");
             }
-            overallResult &= valueTester.performTest(vdom);
+            overallResult &= valueTester.performTest(filename, vdom);
         } else {
             out.write("Not testing values\r\n");
         }
         if (virusCheck) {
-            overallResult &= virusTester.performTest(content, delay);
+            overallResult &= virusTester.performTest(filename, content, delay);
         } else {
             out.write("Not testing for viruses\r\n");
         }
         if (testSignatures) {
-            overallResult &= signatureTester.performTest(p.toFile());
+            overallResult &= signatureTester.performTest(filename, p.toFile());
         } else {
             out.write("Not testing signatures\r\n");
         }
@@ -927,7 +947,7 @@ public class VEOCheck {
         }
 
         // first parse the file; if it fails return and stop this test
-        if (!parse.performTest(cutVEO.toFile(), dtd, useStdDtd)) {
+        if (!parse.performTest(veo.toString(), cutVEO.toFile(), dtd, useStdDtd)) {
             return false;
         }
         vdom = parse.getDOMRepresentation();
@@ -939,7 +959,7 @@ public class VEOCheck {
             } else if (version2) {
                 valueTester.setContext("2.0");
             }
-            overallResult &= valueTester.performTest(vdom);
+            overallResult &= valueTester.performTest(veo.toString(), vdom);
         }
         /*
         if (virusCheck) {
@@ -947,7 +967,7 @@ public class VEOCheck {
         }
          */
         if (testSignatures) {
-            overallResult &= signatureTester.performTest(veo.toFile());
+            overallResult &= signatureTester.performTest(veo.toString(), veo.toFile());
         }
         return overallResult;
     }
@@ -959,13 +979,14 @@ public class VEOCheck {
      */
     public static void main(String args[]) {
         VEOCheck vc;
-        
+
         vc = null;
         try {
             vc = new VEOCheck(args);
             vc.openOutputFile();
             vc.printHeader();
             vc.testVEOs();
+            vc.produceSummaryReport();
         } catch (IOException | VEOError e) {
             System.err.println(e.getMessage());
             System.exit(-1);

@@ -94,8 +94,8 @@ public class TestSignatures extends TestSupport {
      * @param out
      */
     public TestSignatures(boolean verbose, boolean debug, boolean strict,
-            boolean da, boolean oneLayer, Writer out) {
-        super(verbose, strict, da, oneLayer, out);
+            boolean da, boolean oneLayer, Writer out, ResultSummary results) {
+        super(verbose, strict, da, oneLayer, out, results);
         this.debug = debug;
 
         // set up state machine
@@ -168,7 +168,7 @@ public class TestSignatures extends TestSupport {
      * @param veo
      * @return true if all the signatures verified
      */
-    public boolean performTest(File veo) {
+    public boolean performTest(String filename, File veo) {
         FileInputStream fis;
         BufferedInputStream bis;
         byte[] b;
@@ -191,6 +191,7 @@ public class TestSignatures extends TestSupport {
         certChain = new ArrayList<>();
         ignoreSignedObject = false;
         firstSignatureBlock = true;
+        this.filename = filename;
 
         // open the VEO for buffered reading
         if (veo == null) {
@@ -431,7 +432,7 @@ public class TestSignatures extends TestSupport {
                 }
                 if (sc == null) {
                     startSubTest("TESTING SIGNATURES");
-                    failed("Lock signature validation failed: The Lock Signature purports to sign vers:Signature element with vers:id '" + lockSigBlock.getId() + "' but this element does not exist");
+                    failed("Lock signature validation failed: The Lock Signature purports to sign vers:Signature element with vers:id '" + lockSigBlock.getId() + "' but this element does not exist", true);
                     failed = true;
                 }
             }
@@ -762,23 +763,23 @@ public class TestSignatures extends TestSupport {
                     mdAlgorithm = "SHA-512";
                     break;
                 default:
-                    failed("The signature algorithm identifier ('" + sigAlgId + "') contained in the vers:SignatureAlgorithmIdentifier (M150) element is not recognised");
+                    failed("The signature algorithm identifier ('" + sigAlgId + "') contained in the vers:SignatureAlgorithmIdentifier (M150) element is not recognised", true);
                     return false;
             }
 
             // extract public key from first certificate
             if (certChain.size() < 1) {
-                failed("The signature block does not contain any vers:CertificateBlock (M139) elements");
+                failed("The signature block does not contain any vers:CertificateBlock (M139) elements", true);
                 return false;
             }
             v = certChain.get(0);
             if (v.size() < 1 || v.get(0) == null) {
-                failed("The first vers:CertificateBlock (M139) in the signature does not contain any vers:Certificate (M140) elements");
+                failed("The first vers:CertificateBlock (M139) in the signature does not contain any vers:Certificate (M140) elements", true);
                 return false;
             }
             x509c = extractCertificate(v.get(0));
             if (x509c == null) {
-                failed("Could not decode the vers:Certificate (M140) in the first vers:CertificateBlock (M139) element");
+                failed("Could not decode the vers:Certificate (M140) in the first vers:CertificateBlock (M139) element", true);
                 return false;
             }
 
@@ -791,7 +792,7 @@ public class TestSignatures extends TestSupport {
                 println("Security package does not support the signature or message digest algorithm. Error reported: " + nsae.getMessage());
                 return false;
             } catch (InvalidKeyException ike) {
-                failed("Security package reports that public key is invalid. Error reported: " + ike.getMessage());
+                failed("Security package reports that public key is invalid. Error reported: " + ike.getMessage(), true);
                 return false;
             }
 
@@ -1042,7 +1043,7 @@ public class TestSignatures extends TestSupport {
 
             // finish testing this signature checker itself
             if (!passed) {
-                failed("");
+                failed("", true);
             } else if (verbose) {
                 passed("");
             } else {
@@ -1152,19 +1153,19 @@ public class TestSignatures extends TestSupport {
             try {
                 first.verify(second.getPublicKey());
             } catch (SignatureException e) {
-                failed("Signature of Certificate failed to verify: " + e.getMessage() + "\r\n");
+                failed("Signature of Certificate failed to verify: " + e.getMessage() + "\r\n", true);
                 return false;
             } catch (CertificateException e) {
-                failed("Problem with Certificate: " + e.getMessage() + "\r\n");
+                failed("Problem with Certificate: " + e.getMessage() + "\r\n", true);
                 return false;
             } catch (NoSuchAlgorithmException e) {
-                failed("Problem with Certificate: No Such Algorithm: " + e.getMessage() + "\r\n");
+                failed("Problem with Certificate: No Such Algorithm: " + e.getMessage() + "\r\n", true);
                 return false;
             } catch (InvalidKeyException e) {
-                failed("Problem with Certificate: Invalid public key in Certificate: " + e.getMessage() + "\r\n");
+                failed("Problem with Certificate: Invalid public key in Certificate: " + e.getMessage() + "\r\n", true);
                 return false;
             } catch (NoSuchProviderException e) {
-                failed("Problem with Certificate: No such provider: " + e.getMessage() + "\r\n");
+                failed("Problem with Certificate: No such provider: " + e.getMessage() + "\r\n", true);
                 return false;
             }
             return true;
