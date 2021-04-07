@@ -6,23 +6,13 @@
 package VEOCheck;
 
 /**
- * *************************************************************
  *
  * V E O C H E C K
  *
  * This class checks a VERS2 VEO for validity.
  *
- * Andrew Waugh (andrew.waugh@prov.vic.gov.au) Copyright 2005, 2015, 2018 PROV
+ * @author Andrew Waugh (andrew.waugh@prov.vic.gov.au) Copyright 2005, 2015, 2018 PROV
  *
- * 20101027 Changed default to be alltests = true to prevent the default from
- * not testing anything (confusing for users) 20150511 Added testing for viruses
- * 20150518 Imported into NetBeans. Altered to support virus checking 20150602
- * Added the ability to specify a directory of VEOs 20180105 Added headless mode
- * for new DA 20180314 Added ability to specify a file that contains the DTD
- * 20180411 Altered virus checking to look for the process rather than the
- * service 20180601 Now uses VERSCommon instead of VEOSupport
- *
- *************************************************************
  */
 import VERSCommon.LTSF;
 import VERSCommon.ResultSummary;
@@ -67,8 +57,6 @@ import java.util.logging.Logger;
  * <li>That present elements have legitimate values
  * <li>That there are no empty elements
  * </ul>
- *
- * @author Andrew Waugh
  */
 public class VEOCheck {
 
@@ -116,6 +104,33 @@ public class VEOCheck {
 
     // logging
     private final static Logger LOG = Logger.getLogger("VEOCheck.VEOCheck");
+    
+    /**
+     * Report on version...
+     * 
+     * <pre>
+     * 20180601 2.0 Put under GIT
+     * 20180620 2.1 Output the byteStream in test signatures
+     * 20180711 2.2 Restructured packages
+     * 20180831 2.3 Fixed bugs in reading non UTF-8 characters, now recurses through directories
+     * 20181106 2.4 Now ignores DTD when pulling apart VEO
+     * 20190108 2.5 Fix to possible bug
+     * 20190819 2.6 Added support for SHA256 & SHA512
+     * 20190919 2.7 Added support for SHA384 & general code cleanup
+     * 20191127 2.8 Fixed bug, cleaned up BAT file & added Readme.md
+     * 20191209 3.0 Added seven new security classifications
+     * 20200103 3.1 Changed case 'Cabinet in confidence' a/c user request & redid BAT file
+     * 20200207 3.2 Relaxed case checking in security classification a/c user request
+     * 20200217 3.3 Simplified file name handling & corrected bug
+     * 20200507 3.4 Added migration flag to support moving old VEOs into new DSA & added manual
+     * 20200716 3.5 Moved to common code for LTSF checking for V2 and V3
+     * 20200802 3.6 Support files are all now in VERS Common
+     * 20200603 3.7 Added report summary functionality
+     * </pre>
+     */
+    static String version() {
+        return("3.7");
+    }
 
     /**
      * Constructor for testing outermost (first layer) of VEO.
@@ -124,6 +139,9 @@ public class VEOCheck {
      * @throws VERSCommon.VEOFatal could not be constructed
      */
     public VEOCheck(String args[]) throws VEOFatal {
+        SimpleDateFormat sdf;
+        TimeZone tz;
+        
         // default logging
         LOG.getParent().setLevel(Level.WARNING);
         LOG.setLevel(null);
@@ -153,6 +171,81 @@ public class VEOCheck {
 
         // parse commmand line arguments
         parseCommandArgs(args);
+        
+        // print out information about report
+
+        System.out.println("******************************************************************************");
+        System.out.println("*                                                                            *");
+        System.out.println("*                 V E O ( V 2 )   T E S T I N G   T O O L                    *");
+        System.out.println("*                                                                            *");
+        System.out.println("*                                Version "+version()+"                                 *");
+        System.out.println("*           Copyright 2005, 2015 Public Record Office Victoria               *");
+        System.out.println("*                                                                            *");
+        System.out.println("******************************************************************************");
+        System.out.println("");
+
+        System.out.println("Test run: ");
+        tz = TimeZone.getTimeZone("GMT+10:00");
+        sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss+10:00");
+        sdf.setTimeZone(tz);
+        System.out.println(sdf.format(new Date()));
+        System.out.println("");
+
+        System.out.println("Testing parameters: ");
+        if (extract) {
+            System.out.println(" Extract content, ");
+        }
+        if (testValues) {
+            System.out.println(" Testing values, ");
+        }
+        if (testSignatures) {
+            System.out.println(" Testing signatures, ");
+        }
+        if (virusCheck) {
+            if (mcafee) {
+                System.out.println(" Testing for viruses using mcafee (delay =" + delay + "), ");
+            } else {
+                System.out.println(" Testing for viruses by generating EICAR files (delay =" + delay + "), ");
+            }
+        }
+        if (oneLayer) {
+            System.out.println(" Only test outer layer, ");
+        }
+        if (version1) {
+            System.out.println(" Force test against version 1, ");
+        }
+        if (version2) {
+            System.out.println(" Force test against version 2, ");
+        }
+        if (strict) {
+            System.out.println(" Strict conformance to standard, ");
+        }
+        if (da) {
+            System.out.println(" Digital archive requirement, ");
+        }
+        if (parseVEO) {
+            System.out.println(" Parse original VEO not stripped copy, ");
+        }
+        if (useStdDtd) {
+            System.out.println(" Use standard DTD (http://www.prov.vic.gov.au/vers/standard/vers.dtd), ");
+        } else if (dtd != null) {
+            System.out.println(" Using DTD '" + dtd.toString() + "', ");
+        } else {
+            System.out.println(" Using DTDs referenced by SYSTEM attribute in each VEO, ");
+        }
+        if (tempDir != null) {
+            System.out.println(" Extracting to " + tempDir.toString() + ", ");
+        }
+        if (verbose) {
+            System.out.println(" Verbose output, ");
+        }
+        if (debug) {
+            System.out.println(" Debug output, ");
+        }
+        if (results != null) {
+            System.out.println(" Produce summary report ");
+        }
+        System.out.println("");
     }
 
     /**
@@ -430,96 +523,6 @@ public class VEOCheck {
             }
         }
         return result;
-    }
-
-    /**
-     * Print header
-     *
-     * Start of the report contains information about the test tool itself
-     *
-     * @throws java.io.IOException
-     */
-    public void printHeader() throws IOException {
-        SimpleDateFormat sdf;
-        TimeZone tz;
-
-        if (headless) {
-            return;
-        }
-
-        out.write("******************************************************************************\r\n");
-        out.write("*                                                                            *\r\n");
-        out.write("*                     V E O   T E S T I N G   T O O L                        *\r\n");
-        out.write("*                                                                            *\r\n");
-        out.write("*                                Version 2.0                                 *\r\n");
-        out.write("*           Copyright 2005, 2015 Public Record Office Victoria               *\r\n");
-        out.write("*                                                                            *\r\n");
-        out.write("******************************************************************************\r\n");
-        out.write("\r\n");
-
-        out.write("Test run: ");
-        tz = TimeZone.getTimeZone("GMT+10:00");
-        sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss+10:00");
-        sdf.setTimeZone(tz);
-        out.write(sdf.format(new Date()));
-        out.write("\r\n");
-
-        out.write("Testing parameters: ");
-        if (extract) {
-            out.write("Extract content, ");
-        }
-        if (testValues) {
-            out.write("Test values, ");
-        }
-        if (testSignatures) {
-            out.write("Test signatures, ");
-        }
-        if (virusCheck) {
-            if (mcafee) {
-                out.write("Test for viruses using mcafee (delay =" + delay + "), ");
-            } else {
-                out.write("Test for viruses by generating EICAR files (delay =" + delay + "), ");
-            }
-        }
-        if (oneLayer) {
-            out.write("Only test outer layer, ");
-        }
-        if (version1) {
-            out.write("Force test against version 1, ");
-        }
-        if (version2) {
-            out.write("Force test against version 2, ");
-        }
-        if (strict) {
-            out.write("Strict conformance, ");
-        }
-        if (da) {
-            out.write("Digital archive requirement, ");
-        }
-        if (parseVEO) {
-            out.write("Parse original VEO not stripped copy, ");
-        }
-        if (useStdDtd) {
-            out.write("Use standard DTD (http://www.prov.vic.gov.au/vers/standard/vers.dtd), ");
-        } else if (dtd != null) {
-            out.write("Using DTD '" + dtd.toString() + "', ");
-        } else {
-            out.write("Using DTDs referenced by SYSTEM attribute in each VEO, ");
-        }
-        if (tempDir != null) {
-            out.write("Extracting to " + tempDir.toString() + ", ");
-        }
-        if (verbose) {
-            out.write("Verbose output, ");
-        }
-        if (debug) {
-            out.write("Debug output, ");
-        }
-        if (results != null) {
-            out.write("Produce summary report ");
-        }
-        out.write("\r\n");
-        out.write("\r\n");
     }
 
     /**
@@ -984,7 +987,6 @@ public class VEOCheck {
         try {
             vc = new VEOCheck(args);
             vc.openOutputFile();
-            vc.printHeader();
             vc.testVEOs();
             vc.produceSummaryReport();
         } catch (IOException | VEOError e) {
