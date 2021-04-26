@@ -166,7 +166,7 @@ public class TestValues extends TestSupport {
         if (checkForEmptyElements(veo, 1)) {
             passed("The VEO contained no empty elements");
         } else {
-            failed("The VEO contained the following empty elements:", false);
+            failed("The VEO contained the following empty elements:", true);
         }
 
         // check values for validity against specification
@@ -175,7 +175,7 @@ public class TestValues extends TestSupport {
         if (checkInvalidValues(null, veo, 1)) {
             passed("The VEO contained no invalid elements");
         } else {
-            failed("The VEO contained the following invalid elements", false);
+            failed("The VEO contained the following invalid elements", true);
         }
         return success;
     }

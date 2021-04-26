@@ -126,10 +126,11 @@ public class VEOCheck {
      * 20200716 3.5 Moved to common code for LTSF checking for V2 and V3
      * 20200802 3.6 Support files are all now in VERS Common
      * 20200603 3.7 Added report summary functionality
+     * 20200421 3.8 Now reports on missing and erroneous values in summary report
      * </pre>
      */
     static String version() {
-        return("3.7");
+        return("3.8");
     }
 
     /**
