@@ -85,6 +85,7 @@ public class VEOCheck {
     private boolean verbose;
     private boolean debug;
     private LTSF ltsfs;
+    boolean help;           // true if printing a cheat list of command line options
 
     // tests
     private ParseVEO parse;
@@ -127,10 +128,11 @@ public class VEOCheck {
      * 20200802 3.6 Support files are all now in VERS Common
      * 20200603 3.7 Added report summary functionality
      * 20200421 3.8 Now reports on missing and erroneous values in summary report
+     * 20204030 3.9 Added -help command
      * </pre>
      */
     static String version() {
-        return("3.8");
+        return("3.9");
     }
 
     /**
@@ -159,7 +161,7 @@ public class VEOCheck {
         da = false;
         extract = false;
         virusCheck = false;
-        mcafee = true;
+        mcafee = false;
         delay = 1;
         parseVEO = false;
         useStdDtd = false;
@@ -169,6 +171,7 @@ public class VEOCheck {
         tempDir = Paths.get(".");
         ltsfs = null;
         results = null;
+        help = false;
 
         // parse commmand line arguments
         parseCommandArgs(args);
@@ -191,6 +194,38 @@ public class VEOCheck {
         sdf.setTimeZone(tz);
         System.out.println(sdf.format(new Date()));
         System.out.println("");
+        if (help) {
+            // VEOCheck [-all] -f LTSFFile [-strict] [-da] [-extract] [-virus] [-eicar] [-parseVEO] [-useStdDTD] [-dtd <dtdFile>] [-oneLayer] [-signatures] [-sr] [-values] [-v1.2|-v2] [-virus] [-verbose] [-debug] [-out <file>] [-t <tempDir>] <files>+";
+            System.out.println("Command line arguments:");
+            System.out.println(" Mandatory:");
+            System.out.println("  -f <LTSfile>: file path to a file containing a list of the long term sustainable formats");
+            System.out.println("  -t <directory>: file path to where the templates are located");
+            System.out.println("  -dtd <dtdFile>: file path to the VERS V2 DTD for validation (usually set in BAT file)");
+            System.out.println("  <files>: one or more files or directories containing VERS V2 VEOs");
+            System.out.println("");
+            System.out.println(" Optional:");
+            System.out.println("  -all: do all tests (extract, signatures, values & virus)");
+            System.out.println("  -extract: extract the content files from the VEO");
+            System.out.println("  -signatures: validate the signatures");
+            System.out.println("  -values: validate the element values in the VEO");
+            System.out.println("  -virus: test to see if the content files are infected by a virus (requires an anti-virus program to be running)");
+            System.out.println("  -sr: generate a report summarising the errors and warnings produced in validating multiple VEOs");
+            System.out.println("  -tempdir <directory>: directory in which extracted content is left (& where work is performed)");
+            System.out.println("  -out <file>: capture the output of the named run in the file");
+            System.out.println("");
+            System.out.println(" Obsolete options:");
+            System.out.println("  -parseVEO: parse the original VEO, not a copy stripped of its content files (much slower)");
+            System.out.println("  -oneLayer: only validate the outer layer of a multi-layer VERS V2 VEO");
+            System.out.println("  -strict: do the tests in strict accordance with the VERS 1999 Version 2 standard");
+            System.out.println("  -da: do the tests as if it was the Digital Archive (default not set)");
+            System.out.println("  -v1.2: validate against VERS V1.2 (default is V2)");
+            
+            System.out.println("");
+            System.out.println("  -v: verbose mode: give more details about processing");
+            System.out.println("  -d: debug mode: give even more details about processing");
+            System.out.println("  -help: print this listing");
+            System.out.println("");
+        }
 
         System.out.println("Testing parameters: ");
         if (extract) {
@@ -287,7 +322,7 @@ public class VEOCheck {
         da = false;
         extract = false;
         virusCheck = false;
-        mcafee = true;
+        mcafee = false;
         delay = 1;
         parseVEO = false;
         useStdDtd = false;
@@ -298,6 +333,7 @@ public class VEOCheck {
         this.ltsfs = ltsfs;
         out = new StringWriter();
         this.results = results;
+        help = false;
 
         // set up standard tests...
         parse = new ParseVEO(verbose, da, strict, oneLayer, out, results);
@@ -363,7 +399,7 @@ public class VEOCheck {
      */
     final public void parseCommandArgs(String args[]) throws VEOFatal {
         int i;
-        String usage = "VEOCheck [-all] -f LTSFFile [-strict] [-da] [-extract] [-virus] [-eicar] [-parseVEO] [-useStdDTD] [-dtd <dtdFile>] [-oneLayer] [-signatures] [-sr] [-values] [-v1.2|-v2] [-virus] [-verbose] [-debug] [-out <file>] [-t <tempDir>] <files>+";
+        String usage = "VEOCheck [-all] [-signatures] [-values] [-virus] [-extract] -f LTSFFile -dtd <dtdFile> [-sr] [-strict] [-da] [-parseVEO] [-oneLayer] [-v1.2|-v2] [-verbose] [-debug] [-out <file>] [-t <tempDir>] <files>+";
 
         // not in headless mode...
         headless = false;
@@ -376,6 +412,9 @@ public class VEOCheck {
         // go through list of command arguments
         for (i = 0; i < args.length; i++) {
             switch (args[i].toLowerCase()) {
+                case "-help": // print help about the command line args
+                    help = true;
+                    break;
                 case "-all": // perform all tests
                     testValues = true;
                     virusCheck = true;
@@ -394,6 +433,7 @@ public class VEOCheck {
                 case "-virus": // extract content and virus check it
                     extract = true;
                     virusCheck = true;
+                    mcafee = false;
                     break;
                 case "-d": // delay for virus checking
                     i++;
@@ -435,7 +475,6 @@ public class VEOCheck {
                     }
                     dtd = Paths.get(args[i]);
                     if (useStdDtd) {
-                        useStdDtd = false;
                         throw new VEOFatal("Cannot use '-dtd' and '-usestddtd' together");
                     }
                     break;
