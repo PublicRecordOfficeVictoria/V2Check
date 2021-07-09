@@ -129,10 +129,11 @@ public class VEOCheck {
      * 20200603 3.7 Added report summary functionality
      * 20200421 3.8 Now reports on missing and erroneous values in summary report
      * 20204030 3.9 Added -help command
+     * 20210709 3.10 Added support for PISA (BAT file)
      * </pre>
      */
     static String version() {
-        return("3.9");
+        return("3.10");
     }
 
     /**
