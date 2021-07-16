@@ -11,7 +11,8 @@ package VEOCheck;
  *
  * This class checks a VERS2 VEO for validity.
  *
- * @author Andrew Waugh (andrew.waugh@prov.vic.gov.au) Copyright 2005, 2015, 2018 PROV
+ * @author Andrew Waugh (andrew.waugh@prov.vic.gov.au) Copyright 2005, 2015,
+ * 2018 PROV
  *
  */
 import VERSCommon.LTSF;
@@ -84,6 +85,7 @@ public class VEOCheck {
     private boolean version2;
     private boolean verbose;
     private boolean debug;
+    private boolean forceProgressReport;
     private LTSF ltsfs;
     boolean help;           // true if printing a cheat list of command line options
 
@@ -105,10 +107,10 @@ public class VEOCheck {
 
     // logging
     private final static Logger LOG = Logger.getLogger("VEOCheck.VEOCheck");
-    
+
     /**
      * Report on version...
-     * 
+     *
      * <pre>
      * 20180601 2.0 Put under GIT
      * 20180620 2.1 Output the byteStream in test signatures
@@ -130,10 +132,11 @@ public class VEOCheck {
      * 20200421 3.8 Now reports on missing and erroneous values in summary report
      * 20204030 3.9 Added -help command
      * 20210709 3.10 Added support for PISA (BAT file)
+     * 20210712 3.11 Added check that the filename on command line exists & improved reporting
      * </pre>
      */
     static String version() {
-        return("3.10");
+        return ("3.11");
     }
 
     /**
@@ -145,7 +148,7 @@ public class VEOCheck {
     public VEOCheck(String args[]) throws VEOFatal {
         SimpleDateFormat sdf;
         TimeZone tz;
-        
+
         // default logging
         LOG.getParent().setLevel(Level.WARNING);
         LOG.setLevel(null);
@@ -173,116 +176,132 @@ public class VEOCheck {
         ltsfs = null;
         results = null;
         help = false;
+        forceProgressReport = false;
 
         // parse commmand line arguments
         parseCommandArgs(args);
-        
-        // print out information about report
 
-        System.out.println("******************************************************************************");
-        System.out.println("*                                                                            *");
-        System.out.println("*                 V E O ( V 2 )   T E S T I N G   T O O L                    *");
-        System.out.println("*                                                                            *");
-        System.out.println("*                                Version "+version()+"                                 *");
-        System.out.println("*           Copyright 2005, 2015 Public Record Office Victoria               *");
-        System.out.println("*                                                                            *");
-        System.out.println("******************************************************************************");
-        System.out.println("");
-
-        System.out.println("Test run: ");
-        tz = TimeZone.getTimeZone("GMT+10:00");
-        sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss+10:00");
-        sdf.setTimeZone(tz);
-        System.out.println(sdf.format(new Date()));
-        System.out.println("");
-        if (help) {
-            // VEOCheck [-all] -f LTSFFile [-strict] [-da] [-extract] [-virus] [-eicar] [-parseVEO] [-useStdDTD] [-dtd <dtdFile>] [-oneLayer] [-signatures] [-sr] [-values] [-v1.2|-v2] [-virus] [-verbose] [-debug] [-out <file>] [-t <tempDir>] <files>+";
-            System.out.println("Command line arguments:");
-            System.out.println(" Mandatory:");
-            System.out.println("  -f <LTSfile>: file path to a file containing a list of the long term sustainable formats");
-            System.out.println("  -t <directory>: file path to where the templates are located");
-            System.out.println("  -dtd <dtdFile>: file path to the VERS V2 DTD for validation (usually set in BAT file)");
-            System.out.println("  <files>: one or more files or directories containing VERS V2 VEOs");
-            System.out.println("");
-            System.out.println(" Optional:");
-            System.out.println("  -all: do all tests (extract, signatures, values & virus)");
-            System.out.println("  -extract: extract the content files from the VEO");
-            System.out.println("  -signatures: validate the signatures");
-            System.out.println("  -values: validate the element values in the VEO");
-            System.out.println("  -virus: test to see if the content files are infected by a virus (requires an anti-virus program to be running)");
-            System.out.println("  -sr: generate a report summarising the errors and warnings produced in validating multiple VEOs");
-            System.out.println("  -tempdir <directory>: directory in which extracted content is left (& where work is performed)");
-            System.out.println("  -out <file>: capture the output of the named run in the file");
-            System.out.println("");
-            System.out.println(" Obsolete options:");
-            System.out.println("  -parseVEO: parse the original VEO, not a copy stripped of its content files (much slower)");
-            System.out.println("  -oneLayer: only validate the outer layer of a multi-layer VERS V2 VEO");
-            System.out.println("  -strict: do the tests in strict accordance with the VERS 1999 Version 2 standard");
-            System.out.println("  -da: do the tests as if it was the Digital Archive (default not set)");
-            System.out.println("  -v1.2: validate against VERS V1.2 (default is V2)");
-            
-            System.out.println("");
-            System.out.println("  -v: verbose mode: give more details about processing");
-            System.out.println("  -d: debug mode: give even more details about processing");
-            System.out.println("  -help: print this listing");
-            System.out.println("");
-        }
-
-        System.out.println("Testing parameters: ");
-        if (extract) {
-            System.out.println(" Extract content, ");
-        }
-        if (testValues) {
-            System.out.println(" Testing values, ");
-        }
-        if (testSignatures) {
-            System.out.println(" Testing signatures, ");
-        }
-        if (virusCheck) {
-            if (mcafee) {
-                System.out.println(" Testing for viruses using mcafee (delay =" + delay + "), ");
-            } else {
-                System.out.println(" Testing for viruses by generating EICAR files (delay =" + delay + "), ");
+        // where do we write the output?
+        if (outputFile == null) {
+            out = new OutputStreamWriter(System.out);
+        } else {
+            try {
+                out = new FileWriter(outputFile.toFile());
+            } catch (IOException ioe) {
+                throw new VEOFatal("Cannot open output file for writing: " + ioe.toString());
             }
         }
-        if (oneLayer) {
-            System.out.println(" Only test outer layer, ");
+
+        // print out information about report
+        try {
+            out.write("******************************************************************************\r\n");
+            out.write("*                                                                            *\r\n");
+            out.write("*                 V E O ( V 2 )   T E S T I N G   T O O L                    *\r\n");
+            out.write("*                                                                            *\r\n");
+            out.write("*                                Version " + version() + "                                 *\r\n");
+            out.write("*           Copyright 2005, 2015 Public Record Office Victoria               *\r\n");
+            out.write("*                                                                            *\r\n");
+            out.write("******************************************************************************\r\n");
+            out.write("\r\n");
+
+            System.out.println("Test run: ");
+            tz = TimeZone.getTimeZone("GMT+10:00");
+            sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss+10:00");
+            sdf.setTimeZone(tz);
+            out.write(sdf.format(new Date()));
+            out.write("\r\n");
+            if (help) {
+                // VEOCheck [-all] -f LTSFFile [-strict] [-da] [-extract] [-virus] [-eicar] [-parseVEO] [-useStdDTD] [-dtd <dtdFile>] [-oneLayer] [-signatures] [-sr] [-values] [-v1.2|-v2] [-virus] [-verbose] [-debug] [-out <file>] [-t <tempDir>] <files>+";
+                out.write("Command line arguments:\r\n");
+                out.write(" Mandatory:\r\n");
+                out.write("  -f <LTSfile>: file path to a file containing a list of the long term sustainable formats\r\n");
+                out.write("  -t <directory>: file path to where the templates are located\r\n");
+                out.write("  -dtd <dtdFile>: file path to the VERS V2 DTD for validation (usually set in BAT file)\r\n");
+                out.write("  <files>: one or more files or directories containing VERS V2 VEOs\r\n");
+                out.write("\r\n");
+                out.write(" Optional:\r\n");
+                out.write("  -all: do all tests (extract, signatures, values & virus)\r\n");
+                out.write("  -extract: extract the content files from the VEO\r\n");
+                out.write("  -signatures: validate the signatures\r\n");
+                out.write("  -values: validate the element values in the VEO\r\n");
+                out.write("  -virus: test to see if the content files are infected by a virus (requires an anti-virus program to be running)\r\n");
+                out.write("  -sr: generate a report summarising the errors and warnings produced in validating multiple VEOs\r\n");
+                out.write("  -tempdir <directory>: directory in which extracted content is left (& where work is performed)\r\n");
+                out.write("  -out <file>: capture the output of the named run in the file\r\n");
+                out.write("  -forceStatus: set if writing output to a file, this will also report on the console");
+                out.write("\r\n");
+                out.write(" Obsolete options:\r\n");
+                out.write("  -parseVEO: parse the original VEO, not a copy stripped of its content files (much slower)\r\n");
+                out.write("  -oneLayer: only validate the outer layer of a multi-layer VERS V2 VEO\r\n");
+                out.write("  -strict: do the tests in strict accordance with the VERS 1999 Version 2 standard\r\n");
+                out.write("  -da: do the tests as if it was the Digital Archive (default not set)\r\n");
+                out.write("  -v1.2: validate against VERS V1.2 (default is V2)\r\n");
+
+                out.write("\r\n");
+                out.write("  -v: verbose mode: give more details about processing\r\n");
+                out.write("  -d: debug mode: give even more details about processing\r\n");
+                out.write("  -help: print this listing\r\n");
+                out.write("\r\n");
+            }
+
+            out.write("Testing parameters:\r\n");
+            if (extract) {
+                out.write(" Extract content,\r\n");
+            }
+            if (testValues) {
+                out.write(" Testing values,\r\n");
+            }
+            if (testSignatures) {
+                out.write(" Testing signatures,\r\n");
+            }
+            if (virusCheck) {
+                if (mcafee) {
+                    out.write(" Testing for viruses using mcafee (delay =" + delay + "),\r\n");
+                } else {
+                    out.write(" Testing for viruses by generating EICAR files (delay =" + delay + "),\r\n");
+                }
+            }
+            if (oneLayer) {
+                out.write(" Only test outer layer,\r\n");
+            }
+            if (version1) {
+                out.write(" Force test against version 1,\r\n");
+            }
+            if (version2) {
+                out.write(" Force test against version 2,\r\n");
+            }
+            if (strict) {
+                out.write(" Strict conformance to standard,\r\n");
+            }
+            if (da) {
+                out.write(" Digital archive requirement,\r\n");
+            }
+            if (parseVEO) {
+                out.write(" Parse original VEO not stripped copy,\r\n");
+            }
+            if (useStdDtd) {
+                out.write(" Use standard DTD (http://www.prov.vic.gov.au/vers/standard/vers.dtd),\r\n");
+            } else if (dtd != null) {
+                out.write(" Using DTD '" + dtd.toString() + "',\r\n");
+            } else {
+                out.write(" Using DTDs referenced by SYSTEM attribute in each VEO,\r\n");
+            }
+            if (tempDir != null) {
+                out.write(" Extracting to " + tempDir.toString() + ",\r\n");
+            }
+            if (verbose) {
+                out.write(" Verbose output,\r\n");
+            }
+            if (debug) {
+                out.write(" Debug output,\r\n");
+            }
+            if (results != null) {
+                out.write(" Produce summary report\r\n");
+            }
+            out.write("\r\n");
+        } catch (IOException ioe) {
+            throw new VEOFatal("Failed trying to write to output: " + ioe.getMessage());
         }
-        if (version1) {
-            System.out.println(" Force test against version 1, ");
-        }
-        if (version2) {
-            System.out.println(" Force test against version 2, ");
-        }
-        if (strict) {
-            System.out.println(" Strict conformance to standard, ");
-        }
-        if (da) {
-            System.out.println(" Digital archive requirement, ");
-        }
-        if (parseVEO) {
-            System.out.println(" Parse original VEO not stripped copy, ");
-        }
-        if (useStdDtd) {
-            System.out.println(" Use standard DTD (http://www.prov.vic.gov.au/vers/standard/vers.dtd), ");
-        } else if (dtd != null) {
-            System.out.println(" Using DTD '" + dtd.toString() + "', ");
-        } else {
-            System.out.println(" Using DTDs referenced by SYSTEM attribute in each VEO, ");
-        }
-        if (tempDir != null) {
-            System.out.println(" Extracting to " + tempDir.toString() + ", ");
-        }
-        if (verbose) {
-            System.out.println(" Verbose output, ");
-        }
-        if (debug) {
-            System.out.println(" Debug output, ");
-        }
-        if (results != null) {
-            System.out.println(" Produce summary report ");
-        }
-        System.out.println("");
     }
 
     /**
@@ -335,6 +354,7 @@ public class VEOCheck {
         out = new StringWriter();
         this.results = results;
         help = false;
+        forceProgressReport = false;
 
         // set up standard tests...
         parse = new ParseVEO(verbose, da, strict, oneLayer, out, results);
@@ -367,6 +387,8 @@ public class VEOCheck {
      * <li>-oneLayer test only the outer layer
      * <li>-debug output debug information
      * <li>-sr produce summary report of all errors
+     * <li>-forceStatus if output is being sent to a file, this allows the status
+     * to be written on the console as well
      * </ul>
      * Any argument that does not begin with a '-' character is assumed to be
      * the name of a VEO to check
@@ -519,6 +541,9 @@ public class VEOCheck {
                     }
                     tempDir = Paths.get(args[i]);
                     break;
+                case "-forcestatus":
+                    forceProgressReport = true;
+                    break;
                 default: // anything not starting with a '-' is a VEO
                     if (args[i].charAt(0) == '-') {
                         throw new VEOFatal("Unknown argument: '" + args[i] + "\nUsage: " + usage);
@@ -540,34 +565,7 @@ public class VEOCheck {
     }
 
     /**
-     * Open the output file
-     *
-     * If no output file was specified in the command args, write test results
-     * to std out. Otherwise write the output to the specified file.
-     *
-     * @return
-     */
-    public String openOutputFile() {
-        String result;
-
-        if (headless) {
-            return ("FAILED: operating in headless mode");
-        }
-        result = "";
-        if (outputFile == null) {
-            out = new OutputStreamWriter(System.out);
-        } else {
-            try {
-                out = new FileWriter(outputFile.toFile());
-            } catch (IOException ioe) {
-                result = ioe.toString();
-            }
-        }
-        return result;
-    }
-
-    /**
-     * Test the VEOs
+     * Test the VEOs when run from the command line
      *
      * Go through the list of files on the command line and run the tests on
      * each VEO. Print the results.
@@ -622,11 +620,11 @@ public class VEOCheck {
         // check that the virus checking software is STILL running
         checkVirusScannerRunning(tempDir, true);
     }
-    
+
     /**
      * Print a summary of the results on the Writer out.
-     * 
-     * @throws IOException 
+     *
+     * @throws IOException
      */
     public void produceSummaryReport() throws IOException {
         if (headless || results == null || out == null) {
@@ -646,6 +644,11 @@ public class VEOCheck {
             filePath = file.toFile().getCanonicalPath();
         } catch (IOException ioe) {
             throw new VEOError("Failed to identify file/directory '" + file.toString() + "' because: " + ioe.getMessage());
+        }
+
+        if (!Files.exists(file)) {
+            System.out.println("Failed to process file '" + filePath + "': it does not exist");
+            return;
         }
 
         if (Files.isDirectory(file)) {
@@ -678,7 +681,8 @@ public class VEOCheck {
     }
 
     /**
-     * Do the Tests
+     * Do the tests when running from the command line. The method vpaTestVEO()
+     * is used when running through the API.
      *
      * Passed the file that contains the VEO
      */
@@ -688,9 +692,16 @@ public class VEOCheck {
         PullApartVEO pav;
         ArrayList<String> content;
         Path p, p1;
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
 
         if (headless) {
             return (false);
+        }
+        
+        // if reporting is going into a file, also write it to the console
+        // so that users have some sense of what is going on
+        if (outputFile != null || forceProgressReport) {
+            System.err.println(sdf.format(new Date())+" "+filename);
         }
 
         overallResult = true;
@@ -1027,7 +1038,6 @@ public class VEOCheck {
         vc = null;
         try {
             vc = new VEOCheck(args);
-            vc.openOutputFile();
             vc.testVEOs();
             vc.produceSummaryReport();
         } catch (IOException | VEOError e) {
