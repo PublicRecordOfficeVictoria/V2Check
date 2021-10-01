@@ -133,10 +133,11 @@ public class VEOCheck {
      * 20204030 3.9 Added -help command
      * 20210709 3.10 Added support for PISA (BAT file)
      * 20210712 3.11 Added check that the filename on command line exists & improved reporting
+     * 20211001 3.12 Changed deprecated calls to get X509 issuer & subject
      * </pre>
      */
     static String version() {
-        return ("3.11");
+        return ("3.12");
     }
 
     /**

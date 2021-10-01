@@ -998,9 +998,9 @@ public class TestSignatures extends TestSupport {
                         x509cl = extractCertificate(v.get(0));
                         if (x509cl != null) {
                             print("  Certificate: Subject: ");
-                            print(x509cl.getSubjectDN().getName());
+                            print(x509cl.getSubjectX500Principal().getName());
                             print(" issued by: ");
-                            println(x509cl.getIssuerDN().getName());
+                            println(x509cl.getIssuerX500Principal().getName());
                             println(x509cl.toString());
                         } else {
                             println("  Certificate: Empty");
@@ -1085,8 +1085,8 @@ public class TestSignatures extends TestSupport {
                 print("Remaining certificates have not been checked");
                 return false;
             }
-            subject = x509cl.getSubjectDN().getName();
-            issuer = x509cl.getIssuerDN().getName();
+            subject = x509cl.getSubjectX500Principal().getName();
+            issuer = x509cl.getIssuerX500Principal().getName();
 
             // verify chain
             for (i = 1; i < chain.size(); i++) {
