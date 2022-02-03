@@ -134,6 +134,7 @@ public class VEOCheck {
      * 20210709 3.10 Added support for PISA (BAT file)
      * 20210712 3.11 Added check that the filename on command line exists & improved reporting
      * 20211001 3.12 Changed deprecated calls to get X509 issuer & subject
+     * 20220202 3.13 Will now flag an error if vers:SourceFileIdentifier is not present (not invalid according to standard)
      * </pre>
      */
     static String version() {
