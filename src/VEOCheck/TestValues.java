@@ -668,6 +668,9 @@ public class TestValues extends TestSupport {
         if (n.getNodeName().equals("vers:Encoding")) {
             return testEncoding(n);
         }
+        if (n.getNodeName().equals("vers:EncodingMetadata")) {
+            return testEncodingMetadata(n);
+        }
         if (n.getNodeName().equals("vers:FileRendering")) {
             return testFileRendering(n);
         }
@@ -1701,7 +1704,16 @@ public class TestValues extends TestSupport {
         if (thisLayerVersion.equals("2.0") && !checkVersId(n, 126)) {
             passed = false;
         }
-        if (!testElementExists(n, "vers:sourceFileIdentifier")) {
+        return passed;
+    }
+
+    /**
+     * TestSupport a vers:EncodingMetadata (300)
+     */
+    boolean testEncodingMetadata(Node n) {
+        boolean passed = true;
+
+        if (!testElementExists(n, "vers:SourceFileIdentifier")) {
             startMissingError();
             Error("A <vers:sourceFileIdentifier> (M129) element is expected by the ingest process to be present in each <vers:Encoding> (M126) element. The ingest process will use the value of the <vers:DocumentSource> (M125) if <vers:sourceFileIdentifier> is not present");
             confirmError();
