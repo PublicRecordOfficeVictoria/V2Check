@@ -136,10 +136,11 @@ public class VEOCheck {
      * 20211001 3.12 Changed deprecated calls to get X509 issuer & subject
      * 20220202 3.13 Will now flag an error if vers:SourceFileIdentifier is not present (not invalid according to standard)
      * 20220304 3.14 Corrected a bug with the vers:SourceFileIdentifier check
+     * 20220330 3.15 Removed reporting if vers:SourceFileIdentifier is not present (a/c request by user)
      * </pre>
      */
     static String version() {
-        return ("3.14");
+        return ("3.15");
     }
 
     /**

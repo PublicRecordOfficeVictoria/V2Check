@@ -1713,12 +1713,14 @@ public class TestValues extends TestSupport {
     boolean testEncodingMetadata(Node n) {
         boolean passed = true;
 
+        /* Test removed a/c request by Dave Fowler as it would clutter up the error logs
         if (!testElementExists(n, "vers:SourceFileIdentifier")) {
             startMissingError();
             Error("A <vers:sourceFileIdentifier> (M129) element is expected by the ingest process to be present in each <vers:Encoding> (M126) element. The ingest process will use the value of the <vers:DocumentSource> (M125) if <vers:sourceFileIdentifier> is not present");
             confirmError();
             passed = false;
         }
+        */
         return passed;
     }
 
