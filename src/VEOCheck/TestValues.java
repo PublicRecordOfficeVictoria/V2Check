@@ -692,7 +692,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:VERSEncapsulatedObject (10)
      */
-    boolean testVERSEncapsulatedObject(Node n) {
+    private boolean testVERSEncapsulatedObject(Node n) {
         boolean passed = true;
         Node n1;
 
@@ -750,7 +750,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:Version (20)
      */
-    boolean testVersion(Node n) {
+    private boolean testVersion(Node n) {
         boolean passed = true;
 
         // test for controlled values
@@ -782,7 +782,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:SignatureBlock (30)
      */
-    boolean testSignatureBlock(Node n) {
+    private boolean testSignatureBlock(Node n) {
         boolean passed = true;
 
         // error if version 1 and vers:id attribute present
@@ -804,7 +804,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:LockSignatureBlock (40)
      */
-    boolean testLockSignatureBlock(Node n) {
+    private boolean testLockSignatureBlock(Node n) {
         boolean passed = true;
         String element, id;
         Node attr, n1;
@@ -859,7 +859,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:SignatureAlgorithmIdentifier (50)
      */
-    boolean testSignatureAlgorithmIdentifier(Node n) {
+    private boolean testSignatureAlgorithmIdentifier(Node n) {
         boolean passed = true;
 
         // test for controlled values
@@ -878,7 +878,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:SignedObject (60)
      */
-    boolean testSignedObject(Node n) {
+    private boolean testSignedObject(Node n) {
         boolean passed = true;
         Node a;
         String s1;
@@ -917,7 +917,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:ObjectType (70)
      */
-    boolean testObjectType(Node n) {
+    private boolean testObjectType(Node n) {
         boolean passed = true;
 
         thisLayerType = getValue(n);
@@ -967,7 +967,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:ObjectContent (80)
      */
-    boolean testObjectContent(Node n) {
+    private boolean testObjectContent(Node n) {
         boolean passed = true;
 
         if (equals(thisLayerType, "File")
@@ -997,7 +997,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:ModifiedVEO (90)
      */
-    boolean testModifiedVEO(Node n) {
+    private boolean testModifiedVEO(Node n) {
         boolean passed = true;
         String s;
         Node attr;
@@ -1038,7 +1038,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:RevisedVEO (100)
      */
-    boolean testRevisedVEO(Node n) {
+    private boolean testRevisedVEO(Node n) {
         boolean passed = true;
 
         inRevisedVEO = true;
@@ -1055,7 +1055,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:OriginalVEO (110)
      */
-    boolean testOriginalVEO(Node n) {
+    private boolean testOriginalVEO(Node n) {
         boolean passed = true;
         Node n1;
 
@@ -1083,7 +1083,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:RecordMetadata (120)
      */
-    boolean testRecordMetadata(Node n) {
+    private boolean testRecordMetadata(Node n) {
         boolean passed = true;
         if (thisLayerVersion.equals("1.2")
                 && !testElementExists(n, "naa:RecordIdentifier")) {
@@ -1101,7 +1101,7 @@ public class TestValues extends TestSupport {
      * 20200205 - Forced a relaxed test of equality a/c transfer request
      * 20220408 - Added 'Not Reviewed' a/c transfer request and further relaxed value comparison
      */
-    boolean testSecurityClassification(Node n) {
+    private boolean testSecurityClassification(Node n) {
         boolean passed = true;
 
         // test for controlled values
@@ -1132,7 +1132,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a naa:AccessStatus (140)
      */
-    boolean testAccessStatus(Node n) {
+    private boolean testAccessStatus(Node n) {
         boolean passed = true;
 
         // test for controlled values
@@ -1152,7 +1152,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a naa:SchemeType (150)
      */
-    boolean testSchemeType(Node n) {
+    private boolean testSchemeType(Node n) {
         boolean passed = true;
 
         // test for controlled values
@@ -1186,7 +1186,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:Subject (160)
      */
-    boolean testSubject(Node n) {
+    private boolean testSubject(Node n) {
         boolean passed = true;
 
         if (!testElementExists(n, "vers:Keyword")) {
@@ -1201,7 +1201,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:AuxiliaryDescription (170)
      */
-    boolean testAuxiliaryDescription(Node n) {
+    private boolean testAuxiliaryDescription(Node n) {
         boolean passed = true;
 
         // error if present in a version 1 VEO
@@ -1217,7 +1217,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a naa:RelatedItemId (180)
      */
-    boolean testRelatedItemId(Node n) {
+    private boolean testRelatedItemId(Node n) {
         boolean passed = true;
 
         if (thisLayerVersion.equals("2.0")
@@ -1236,7 +1236,7 @@ public class TestValues extends TestSupport {
      * ajw 9/8/06. Method added to ensure that vers:DateTimeClosed is present in
      * a file VEO.
      */
-    boolean testVERSDate(Node n) {
+    private boolean testVERSDate(Node n) {
         boolean passed = true;
 
         if (!testElementExists(n, "vers:DateTimeClosed")) {
@@ -1251,7 +1251,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a naa:AggregationLevel (190)
      */
-    boolean testAggregationLevel(Node n) {
+    private boolean testAggregationLevel(Node n) {
         boolean passed = true;
 
         // test for controlled values
@@ -1281,7 +1281,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a naa:UseType (200)
      */
-    boolean testUseType(Node n) {
+    private boolean testUseType(Node n) {
         boolean passed = true;
 
         // test for controlled values
@@ -1309,7 +1309,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a naa:DisposalStatus (210)
      */
-    boolean testDisposalStatus(Node n) {
+    private boolean testDisposalStatus(Node n) {
         boolean passed = true;
 
         // test for controlled values
@@ -1327,7 +1327,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a naa:RefersTo (220)
      */
-    boolean testRefersTo(Node n) {
+    private boolean testRefersTo(Node n) {
         boolean passed = true;
 
         // test for controlled values
@@ -1351,7 +1351,7 @@ public class TestValues extends TestSupport {
      * vers:SeriesIdentifier if in a naa:RelatedItemId. Required adding context
      * (parent) node.
      */
-    boolean testVEOIdentifier(Node parent, Node n) {
+    private boolean testVEOIdentifier(Node parent, Node n) {
         boolean passed = true;
         if (!parent.getNodeName().equals("naa:RelatedItemId")
                 && !testElementExists(n, "vers:AgencyIdentifier")) {
@@ -1373,7 +1373,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:AgencyIdentifier (240)
      */
-    boolean testAgencyIdentifier(Node n) {
+    private boolean testAgencyIdentifier(Node n) {
         boolean passed = true;
         String s;
 
@@ -1392,7 +1392,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:SeriesIdentifier (250)
      */
-    boolean testSeriesIdentifier(Node n) {
+    private boolean testSeriesIdentifier(Node n) {
         boolean passed = true;
         String s;
 
@@ -1411,7 +1411,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:OriginatorsCopy (260)
      */
-    boolean testOriginatorsCopy(Node n) {
+    private boolean testOriginatorsCopy(Node n) {
         boolean passed = true;
 
         // test for controlled values
@@ -1432,7 +1432,7 @@ public class TestValues extends TestSupport {
      * has been checked against the Library of Congress files type information
      * http://www.digitalpreservation.gov/formats
      */
-    boolean testDocument(Node n) {
+    private boolean testDocument(Node n) {
         boolean passed = true;
         String s, ids[];
         Node attr, n1;
@@ -1576,7 +1576,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:DocumentRightsManagement (280)
      */
-    boolean testDocumentRightsManagement(Node n) {
+    private boolean testDocumentRightsManagement(Node n) {
         boolean passed = true;
 
         // error if version 1 and document function present
@@ -1592,7 +1592,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:DocumentFunction (290)
      */
-    boolean testDocumentFunction(Node n) {
+    private boolean testDocumentFunction(Node n) {
         boolean passed = true;
 
         // error if version 1 and document function present
@@ -1608,7 +1608,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:Encoding (300)
      */
-    boolean testEncoding(Node n) {
+    private boolean testEncoding(Node n) {
         boolean passed = true;
 
         if (thisLayerVersion.equals("1.2")
@@ -1627,7 +1627,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:EncodingMetadata (300)
      */
-    boolean testEncodingMetadata(Node n) {
+    private boolean testEncodingMetadata(Node n) {
         boolean passed = true;
 
         /* Test removed a/c request by Dave Fowler as it would clutter up the error logs
@@ -1644,7 +1644,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:FileRendering (310)
      */
-    boolean testFileRendering(Node n) {
+    private boolean testFileRendering(Node n) {
         boolean passed = true;
 
         if (!testElementExists(n, "vers:RenderingKeywords")) {
@@ -1662,7 +1662,7 @@ public class TestValues extends TestSupport {
      * keywords are valid. The syntax of the value is '<ft>[; <ft>]*' where ft
      * is .<ext>|<mime>
      */
-    boolean testRenderingKeywords(Node n) {
+    private boolean testRenderingKeywords(Node n) {
         String s;
         boolean passed = true;
         String fmt[];
@@ -1707,7 +1707,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport a vers:DocumentData (330)
      */
-    boolean testDocumentData(Node n) {
+    private boolean testDocumentData(Node n) {
         boolean passed = true;
 
         // test for attributes in V1
@@ -1824,7 +1824,7 @@ public class TestValues extends TestSupport {
      * required value as an option in the error message If strict, check case,
      * otherwise ignore case
      */
-    boolean checkValue(Node n, String value, String separator) {
+    private boolean checkValue(Node n, String value, String separator) {
         String s1;
 
         Error("'" + value + "'" + separator);
@@ -1842,7 +1842,7 @@ public class TestValues extends TestSupport {
      * non-alphabetic characters. If test fails, add required value as an option
      * in the error message
      */
-    boolean checkValueRelaxed(Node n, String value, String separator) {
+    private boolean checkValueRelaxed(Node n, String value, String separator) {
         Error("'" + value + "'" + separator);
         return realValue(getValue(n)).equals(realValue(value));
     }
@@ -1872,7 +1872,7 @@ public class TestValues extends TestSupport {
     /**
      * Compare the two values If strict, compare case, otherwise ignore case
      */
-    boolean equals(String s1, String s2) {
+    private boolean equals(String s1, String s2) {
         if (!strict) {
             s1 = s1.toLowerCase();
             s2 = s2.toLowerCase();
@@ -1887,7 +1887,7 @@ public class TestValues extends TestSupport {
      * @param element	the element node to be searched
      * @param name	the name of the element to be found
      */
-    boolean testElementExists(Node element, String name) {
+    private boolean testElementExists(Node element, String name) {
         Node n;
 
         // look for specified element
@@ -1916,7 +1916,7 @@ public class TestValues extends TestSupport {
      * @param validvalues	an array of valid values for this attribute
      * @result false if the test failed (i.e. error raised)
      */
-    boolean testAttribute(Node n, int id, String name, String[] validvalues) {
+    private boolean testAttribute(Node n, int id, String name, String[] validvalues) {
         Node a;
         int i;
         String s1, s2;
@@ -1962,7 +1962,7 @@ public class TestValues extends TestSupport {
      * @param n the element in which the id must be found
      * @param mno the VERS specification number for the element (M number)
      */
-    boolean checkVersId(Node n, int mno) {
+    private boolean checkVersId(Node n, int mno) {
         String element, id;
         Node attr;
         int i;
@@ -2063,7 +2063,7 @@ public class TestValues extends TestSupport {
     /**
      * TestSupport to see if a string contains a number
      */
-    boolean testVersIdNumber(String s) {
+    private boolean testVersIdNumber(String s) {
         try {
             Integer.parseInt(s);
         } catch (NumberFormatException nfe) {
@@ -2079,7 +2079,7 @@ public class TestValues extends TestSupport {
      * @param n the element containing the date
      * @param id the VERS specification number (M number) for the element
      */
-    boolean testDateValue(Node n, int id) {
+    private boolean testDateValue(Node n, int id) {
         String s;
         NamedNodeMap attrs;
         int i;
@@ -2256,7 +2256,7 @@ public class TestValues extends TestSupport {
     /**
      * Generic date message
      */
-    void dateFailed(Node n, int posn, String err) {
+    private void dateFailed(Node n, int posn, String err) {
         String s;
         int i;
 
@@ -2278,7 +2278,7 @@ public class TestValues extends TestSupport {
      * @param n	element
      * @param id	VERS id of element we are testing
      */
-    void startElementError(Node n, int id) {
+    private void startElementError(Node n, int id) {
         startError(1, "Error in element <" + n.getNodeName() + "> (M" + id + ")");
     }
 
@@ -2293,7 +2293,7 @@ public class TestValues extends TestSupport {
      * @param attr	attribute
      * @param printValue print the attribute value if true
      */
-    void startAttrError(Node element, int id, Node attr, boolean printValue) {
+    private void startAttrError(Node element, int id, Node attr, boolean printValue) {
         StringBuffer sb;
 
         sb = new StringBuffer();
@@ -2315,7 +2315,7 @@ public class TestValues extends TestSupport {
      * @param id	VERS id of element we are testing
      * @param printValue print the value if true
      */
-    void startValueError(Node n, int id, boolean printValue) {
+    private void startValueError(Node n, int id, boolean printValue) {
         String s;
         StringBuffer sb;
 
@@ -2337,7 +2337,7 @@ public class TestValues extends TestSupport {
      * Start a tentative error message about a missing element that is mandatory
      * in version 2
      */
-    void startV2MissingError() {
+    private void startV2MissingError() {
         startError(4, "Element that is mandatory in a version 2 VEO is missing");
     }
 
@@ -2345,28 +2345,28 @@ public class TestValues extends TestSupport {
      * Start a tentative error message about a missing element that is mandatory
      * in version 1
      */
-    void startV1MissingError() {
+    private void startV1MissingError() {
         startError(5, "Element that is mandatory in a version 1 VEO is missing");
     }
 
     /**
      * Start a tentative error message about a mandatory missing element
      */
-    void startMissingError() {
+    private void startMissingError() {
         startError(6, "Missing mandatory element");
     }
 
     /**
      * Start a tentative error message about a V2 feature in a V1 VEO
      */
-    void startV2inV1Error() {
+    private void startV2inV1Error() {
         startError(7, "Version 2 feature in a version 1 VEO");
     }
 
     /**
      * Start a tentative error message about a V1 feature in a V2 VEO
      */
-    void startV1inV2Error() {
+    private void startV1inV2Error() {
         startError(8, "Version 1 feature in a version 2 VEO");
     }
 
@@ -2374,14 +2374,14 @@ public class TestValues extends TestSupport {
      * Start a tentative error message about a missing mandatory attribute in a
      * V2 VEO
      */
-    void startMissingAttrError() {
+    private void startMissingAttrError() {
         startError(9, "Missing mandatory attribute in a version 2 VEO");
     }
 
     /**
      * Start an error message for a check value
      */
-    void startError(int id, String s) {
+    private void startError(int id, String s) {
         errorMsg.setLength(0);
         errorMsg.append("VAL" + id + ": " + s);
         errorMsg.append("\r\n");
@@ -2390,14 +2390,14 @@ public class TestValues extends TestSupport {
     /**
      * Continue an error message
      */
-    void Error(String s) {
+    private void Error(String s) {
         errorMsg.append(s);
     }
 
     /**
      * We have decided the error actually did occur, so print it
      */
-    void confirmError() {
+    private void confirmError() {
         print(errorMsg.toString() + "\r\n");
         if (results != null) {
             results.recordResult(Type.ERROR, "FAILURE: INVALID VALUE: " + errorMsg.toString(), filename, null);
