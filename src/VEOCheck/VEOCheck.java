@@ -22,7 +22,6 @@ import VERSCommon.VEOFatal;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -140,10 +139,11 @@ public class VEOCheck {
      * 20220304 3.14 Corrected a bug with the vers:SourceFileIdentifier check
      * 20220330 3.15 Removed reporting if vers:SourceFileIdentifier is not present (a/c request by user)
      * 20220408 3.16 Ensured all Readers & Writers used UTF-8
+     * 20220408 3.17 Added 'Not Reviewed' as a security classification and further relaxed value comparison for this element a/c request by user
      * </pre>
      */
     static String version() {
-        return ("3.15");
+        return ("3.17");
     }
 
     /**

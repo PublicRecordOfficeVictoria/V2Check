@@ -1096,9 +1096,10 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:SecurityClassification (130) 20191209 - Added the
-     * classifications Unofficial to Personal Privacy 20200205 - Forced a
-     * relaxed test of equality a/c transfer request
+     * TestSupport a vers:SecurityClassification (130)
+     * 20191209 - Added the classifications Unofficial to Personal Privacy
+     * 20200205 - Forced a relaxed test of equality a/c transfer request
+     * 20220408 - Added 'Not Reviewed' a/c transfer request and further relaxed value comparison
      */
     boolean testSecurityClassification(Node n) {
         boolean passed = true;
@@ -1107,6 +1108,7 @@ public class TestValues extends TestSupport {
         startValueError(n, 25, true);
         Error("which must be: ");
         if (!checkValueRelaxed(n, "Unclassified", ", ")
+                && !checkValueRelaxed(n, "Not Reviewed", ", ")
                 && !checkValueRelaxed(n, "In-Confidence", ", ")
                 && !checkValueRelaxed(n, "Protected", ", ")
                 && !checkValueRelaxed(n, "Highly Protected", ", ")
@@ -1424,60 +1426,6 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * These are the magic strings for the format types specified in PROS 19/05
-     * S3. These should be read from the same source as used for V3 VEOs, but
-     * are specified separately here for two reasons: 1) minimise maintenance of
-     * code in V2, and 2) V2 allows MIME types, but V3 doesn't.
-     */
-    static String ltpf[] = {
-        ".txt", ".docx", ".doc", ".odt", ".pdf",
-        "text/plain",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/msword",
-        "vnd.ms-word.document.macroEnabled",
-        "application/vnd.oasis.opendocument.text",
-        "application/pdf",
-        ".xlsx", ".xls", ".ods", ".csv", ".tsv",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/vnd.ms-excel",
-        "application/vnd.oasis.opendocument.spreadsheet",
-        "text/csv",
-        ".pptx", ".ppt", ".odp",
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        "application/vnd.ms-powerpoint",
-        "application/vnd.oasis.opendocument.presentation",
-        ".tif", ".tiff", ".jpg", ".jpeg", ".jp2", ".png", ".dng",
-        "image/tif", "application/tif", "application/tiff",
-        "image/jpeg", "image/jpg", "application/jpg",
-        "image/jp2", "image/jpeg2000",
-        "image/png",
-        ".svg", ".odg",
-        "image/svg+xml", "application/vnd.oasis.opendocument.graphics",
-        ".wav", ".bwav", ".bwf", ".mp3", ".mp4", ".flac",
-        "audio/wav", "audio/wave", "audio/mp3", "audio/mpg", "audio/mp4", "audio/flac",
-        ".ogg", ".ogv", ".dcp", ".mpg", ".mpeg", ".m4v", ".m4a", ".f4v", ".f4a",
-        "application/ogg", "video/mp4",
-        ".mjp", ".mj2", ".m2v", ".dpx",
-        "video/mj2",
-        ".jsn", ".json", ".siard",
-        "text/json",
-        ".epub",
-        ".zip", ".gzip", ".tar",
-        "application/zip",
-        ".dxf", ".dwg", ".stp", ".step", ".p21",
-        "image/vnd.dxf", "image/vnd.dwg",
-        ".shp", ".shx", ".dbf", ".cpg", ".prj", ".sbn", ".sbx",
-        ".gpkg", ".geojson", ".dem", ".gml", ".kml", ".kmz", ".ecw", ".las", ".img",
-        "application/vnd.google-earth.kml+xml", "application/vnd.las",
-        ".eml", ".mbx", ".mbox", ".msg", ".pst",
-        "message/rfc822", "application/mbox", "application/vnd.ms-outlook",
-        ".htm", ".html", ".xml", ".css", ".xsd", ".dtd", ".warc", ".arc",
-        "text/html", "text/xml", "application/xml", "text/css", "application/warc",
-        "application/xhtml-dtd",
-        ".cgm"
-    };
-
-    /**
      * TestSupport a vers:Document (270) The source for the MIME types is the
      * official IANA list
      * http://www.iana.org/assignments/media-types/media-types.xhtml#text, which
@@ -1504,14 +1452,6 @@ public class TestValues extends TestSupport {
             s = getValue(n1).trim().toLowerCase();
             fmtsFound.append(s);
             foundLtpf = ltsfs.isV2LTSF(s);
-            /*
-            for (j=0; j<ltpf.length; j++) {
-                if (s.contains(ltpf[j].toLowerCase())) {
-                    foundLtpf = true;
-                    break;
-                }
-            }
-             */
         }
         if (!foundLtpf) {
             startError(10, "Document without Long Term Preservation Format");
@@ -1634,29 +1574,6 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * Check a format from a vers:RenderingKeyword element against an approved
-     * list THIS METHOD IS NOT USED
-     */
-    /*
-    static String[] ltsfs = {".pdf", ".tif", ".tiff", ".jpg", ".txt",
-        ".jp2", ".mp4",
-        "text/plain", "image/tiff", "image/jpeg",
-        "image/jp2", "video/mp4", "video/mpeg",
-        "application/pdf"};
-
-    boolean testFormat(String s) {
-        int i;
-
-        s = s.toLowerCase();
-        for (i = 0; i < ltsfs.length; i++) {
-            if (equals(ltsfs[i], s)) {
-                return true;
-            }
-        }
-        return false;
-    }
-     */
-    /**
      * TestSupport a vers:DocumentRightsManagement (280)
      */
     boolean testDocumentRightsManagement(Node n) {
@@ -1720,7 +1637,7 @@ public class TestValues extends TestSupport {
             confirmError();
             passed = false;
         }
-        */
+         */
         return passed;
     }
 
@@ -1921,16 +1838,35 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * Check the value in the node against the required value, always ignoring
-     * case. If test fails, add required value as an option in the error message
+     * Check the value in the node against the required value, ignoring case and
+     * non-alphabetic characters. If test fails, add required value as an option
+     * in the error message
      */
     boolean checkValueRelaxed(Node n, String value, String separator) {
-        String s1;
-
         Error("'" + value + "'" + separator);
-        value = value.toLowerCase();
-        s1 = getValue(n).trim().toLowerCase();
-        return value.equals(s1);
+        return realValue(getValue(n)).equals(realValue(value));
+    }
+
+    /**
+     * Extract the alphabetic characters from the value for comparison purposes.
+     * This ignores non-alphabetic characters (e.g. whitespace, hyphens,
+     * punctuation), and converts all alphabetic characters to lower case.
+     */
+    private String realValue(String value) {
+        StringBuilder sb = new StringBuilder();
+        int i, c;
+
+        for (i = 0; i < value.length(); i++) {
+            c = Character.codePointAt(value, i);
+            if (Character.isAlphabetic(c)) {
+                if (Character.isUpperCase(c)) {
+                    sb.append(Character.toLowerCase(c));
+                } else {
+                    sb.append(c);
+                }
+            }
+        }
+        return sb.toString();
     }
 
     /**
