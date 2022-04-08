@@ -29,6 +29,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.nio.charset.Charset;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -102,6 +103,7 @@ public class VEOCheck {
     private Path tempDir;
 
     // where to write results etc
+    private FileOutputStream fos;
     private Writer out;
     private ResultSummary results;
 
@@ -137,6 +139,7 @@ public class VEOCheck {
      * 20220202 3.13 Will now flag an error if vers:SourceFileIdentifier is not present (not invalid according to standard)
      * 20220304 3.14 Corrected a bug with the vers:SourceFileIdentifier check
      * 20220330 3.15 Removed reporting if vers:SourceFileIdentifier is not present (a/c request by user)
+     * 20220408 3.16 Ensured all Readers & Writers used UTF-8
      * </pre>
      */
     static String version() {
@@ -186,11 +189,13 @@ public class VEOCheck {
         parseCommandArgs(args);
 
         // where do we write the output?
+        fos = null;
         if (outputFile == null) {
             out = new OutputStreamWriter(System.out);
         } else {
             try {
-                out = new FileWriter(outputFile.toFile());
+                fos = new FileOutputStream(outputFile.toFile());
+                out = new OutputStreamWriter(fos, Charset.forName("UTF-8"));
             } catch (IOException ioe) {
                 throw new VEOFatal("Cannot open output file for writing: " + ioe.toString());
             }
@@ -945,7 +950,7 @@ public class VEOCheck {
         } catch (FileNotFoundException e) {
             throw new VEOError("Failed to create '" + eicar.toString() + "': " + e.toString());
         }
-        osw = new OutputStreamWriter(fos);
+        osw = new OutputStreamWriter(fos, Charset.forName("UTF-8"));
         try {
             osw.write("X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*");
         } catch (IOException e) {
