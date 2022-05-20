@@ -140,10 +140,11 @@ public class VEOCheck {
      * 20220330 3.15 Removed reporting if vers:SourceFileIdentifier is not present (a/c request by user)
      * 20220408 3.16 Ensured all Readers & Writers used UTF-8
      * 20220408 3.17 Added 'Not Reviewed' as a security classification and further relaxed value comparison for this element a/c request by user
+     * 20220520 3.18 Changed to catch invalid file names (e.g. Paths.get() & in resolve())
      * </pre>
      */
     static String version() {
-        return ("3.17");
+        return ("3.18");
     }
 
     /**
@@ -396,8 +397,8 @@ public class VEOCheck {
      * <li>-oneLayer test only the outer layer
      * <li>-debug output debug information
      * <li>-sr produce summary report of all errors
-     * <li>-forceStatus if output is being sent to a file, this allows the status
-     * to be written on the console as well
+     * <li>-forceStatus if output is being sent to a file, this allows the
+     * status to be written on the console as well
      * </ul>
      * Any argument that does not begin with a '-' character is assumed to be
      * the name of a VEO to check
@@ -481,7 +482,7 @@ public class VEOCheck {
                     }
                     try {
                         ltsfs = new LTSF(Paths.get(args[i]));
-                    } catch (VEOError ve) {
+                    } catch (VEOError | InvalidPathException ve) {
                         throw new VEOFatal("Could not parse format file '" + args[i] + "' due to: " + ve.getMessage());
                     }
                     break;
@@ -505,7 +506,11 @@ public class VEOCheck {
                     if (i == args.length) {
                         throw new VEOFatal("Missing dtd file after '-dtd'\nUsage: " + usage);
                     }
-                    dtd = Paths.get(args[i]);
+                    try {
+                        dtd = Paths.get(args[i]);
+                    } catch (InvalidPathException ve) {
+                        throw new VEOFatal("Could not parse format file '" + args[i] + "' due to: " + ve.getMessage());
+                    }
                     if (useStdDtd) {
                         throw new VEOFatal("Cannot use '-dtd' and '-usestddtd' together");
                     }
@@ -541,14 +546,22 @@ public class VEOCheck {
                     if (i == args.length) {
                         throw new VEOFatal("Missing output file after '-out'\nUsage: " + usage);
                     }
-                    outputFile = Paths.get(args[i]);
+                    try {
+                        outputFile = Paths.get(args[i]);
+                    } catch (InvalidPathException ve) {
+                        throw new VEOFatal("Could not parse format file '" + args[i] + "' due to: " + ve.getMessage());
+                    }
                     break;
                 case "-t": // specify a directory in which to put the extracted content
                     i++;
                     if (i == args.length) {
                         throw new VEOFatal("Missing temporary directory after '-t'\nUsage: " + usage);
                     }
-                    tempDir = Paths.get(args[i]);
+                    try {
+                        tempDir = Paths.get(args[i]);
+                    } catch (InvalidPathException ve) {
+                        throw new VEOFatal("Could not parse format file '" + args[i] + "' due to: " + ve.getMessage());
+                    }
                     break;
                 case "-forcestatus":
                     forceProgressReport = true;
@@ -706,18 +719,23 @@ public class VEOCheck {
         if (headless) {
             return (false);
         }
-        
+
         // if reporting is going into a file, also write it to the console
         // so that users have some sense of what is going on
         if (outputFile != null || forceProgressReport) {
-            System.err.println(sdf.format(new Date())+" "+filename);
+            System.err.println(sdf.format(new Date()) + " " + filename);
         }
 
         overallResult = true;
         content = null;
 
         out.write("New test. Testing '" + filename + "'\r\n");
-        p = Paths.get(filename);
+        try {
+            p = Paths.get(filename);
+        } catch (InvalidPathException ve) {
+            out.write("  FAILED: File name '"+filename+"' is invalid\r\n");
+            return false;
+        }
         if (!Files.exists(p)) {
             out.write("  FAILED: VEO does not exist\r\n");
             return false;
@@ -935,7 +953,11 @@ public class VEOCheck {
         OutputStreamWriter osw;
 
         // test for eicar.txt file and remove if present
-        eicar = Paths.get(dir.toString(), file);
+        try {
+            eicar = dir.resolve(file);
+        } catch (InvalidPathException ipe) {
+            throw new VEOError("Invalid file name (" + file + "): " + ipe.getMessage());
+        }
         if (Files.exists(eicar)) {
             try {
                 Files.delete(eicar);

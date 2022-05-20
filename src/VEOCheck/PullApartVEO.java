@@ -43,6 +43,7 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Stack;
@@ -179,7 +180,7 @@ public class PullApartVEO extends DefaultHandler {
         if (outVeo == null) {
             throw new VEOError("outVEO must not be null");
         }
-         
+
         // remember the veo name without the file extension
         s = inVeo.getFileName().toString();
         if ((i = s.lastIndexOf('.')) != -1) {
@@ -215,7 +216,7 @@ public class PullApartVEO extends DefaultHandler {
             } else {
                 xmlReader.parse(inVeo, this);
             }
-            */
+             */
         } catch (SAXException | IOException e) {
             try {
                 bis.close();
@@ -461,10 +462,14 @@ public class PullApartVEO extends DefaultHandler {
 
             // open the file for writing... if the content is base64 encoded
             // decode it, otherwise write out the characters
+            s = veoName + "-" + ((String) currentId.peek());
+            files.add(s);
             try {
-                s = veoName + "-" + ((String) currentId.peek());
-                f = Paths.get(tempDir.toAbsolutePath().toString(), s);
-                files.add(s);
+                f = tempDir.toAbsolutePath().resolve(s);
+            } catch (InvalidPathException ipe) {
+                throw new SAXException("Filename ("+s+") was invalid " + ipe.getMessage());
+            }
+            try {
                 contentfos = new FileOutputStream(f.toFile());
                 contentbos = new BufferedOutputStream(contentfos);
                 if (!base64) {
@@ -473,7 +478,7 @@ public class PullApartVEO extends DefaultHandler {
                     b64.reset();
                 }
             } catch (FileNotFoundException e) {
-                System.err.println("Could not open file '" + (String) currentId.peek() + "' for writing");
+                System.err.println("Could not open file '" + s + "' for writing");
                 throw new SAXException("IOException: " + e.getMessage());
             } catch (IOException e) {
                 try {
@@ -716,20 +721,21 @@ public class PullApartVEO extends DefaultHandler {
             }
             pav = new PullApartVEO(null);
             pav.extractDocumentData(Paths.get(veoin), Paths.get(veoout), Paths.get("."), true, extract, extract);
-        } catch (VEOError e) {
+        } catch (VEOError | InvalidPathException e) {
             System.err.println(e.getMessage());
         }
     }
 
     class eResolver implements EntityResolver {
+
         @Override
         public InputSource resolveEntity(String publicId, String systemId) {
             try {
-            if (dtd != null && systemId.contains("vers.dtd")) {
-                return new InputSource(new FileReader(dtd.toFile()));
-            } else {
-                return null;
-            }
+                if (dtd != null && systemId.contains("vers.dtd")) {
+                    return new InputSource(new FileReader(dtd.toFile()));
+                } else {
+                    return null;
+                }
             } catch (FileNotFoundException fnfe) {
                 return null;
             }
