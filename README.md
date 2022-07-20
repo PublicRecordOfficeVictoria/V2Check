@@ -1,5 +1,9 @@
 # V2Check
 
+Copyright Public Records Office Victoria 2022
+
+License CC BY 4.0
+
 ## What is VERS?
 
 This package is part of the Victorian Electronic Records Strategy (VERS)
