@@ -1,12 +1,12 @@
 # V2Check
 
-#2 What is VERS?
+## What is VERS?
 
 This package is part of the Victorian Electronic Records Strategy (VERS)
 software release. For more information about VERS see
 [here](https://prov.vic.gov.au/recordkeeping-government/vers).
 
-#2 What is V2Check?
+## What is V2Check?
 
 V2Check analyses a VERS Version 2 (VERS V2) VERS Encapsulated Objects (VEOs).
 
@@ -21,7 +21,7 @@ Version 2 VEOs are specified in PROS 99/007. This specification is now obsolete
 and you should use VERS V3. The equivalent code can be found in the neoVEO
 package.
 
-#2 Using V2Check
+## Using V2Check
 
 V2Check is run from the command line. 'v2check -help' will print a precis of
 the command line options. The package contains a BAT file and a manual.
