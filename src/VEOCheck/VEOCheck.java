@@ -83,6 +83,7 @@ public class VEOCheck {
     private boolean testValues;
     private boolean version1;
     private boolean version2;
+    private boolean vpa;    // true if being run from VPA (backoff on LTSF and Security Classification tests)
     private boolean verbose;
     private boolean debug;
     private boolean forceProgressReport;
@@ -141,10 +142,11 @@ public class VEOCheck {
      * 20220408 3.16 Ensured all Readers & Writers used UTF-8
      * 20220408 3.17 Added 'Not Reviewed' as a security classification and further relaxed value comparison for this element a/c request by user
      * 20220520 3.18 Changed to catch invalid file names (e.g. Paths.get() & in resolve())
+     * 20230227 3.19 Added -vpa mode (do not check for valid LTSF or SecurityClassification value)
      * </pre>
      */
     static String version() {
-        return ("3.18");
+        return ("3.19");
     }
 
     /**
@@ -185,6 +187,7 @@ public class VEOCheck {
         results = null;
         help = false;
         forceProgressReport = false;
+        vpa = false;
 
         // parse commmand line arguments
         parseCommandArgs(args);
@@ -238,7 +241,8 @@ public class VEOCheck {
                 out.write("  -sr: generate a report summarising the errors and warnings produced in validating multiple VEOs\r\n");
                 out.write("  -tempdir <directory>: directory in which extracted content is left (& where work is performed)\r\n");
                 out.write("  -out <file>: capture the output of the named run in the file\r\n");
-                out.write("  -forceStatus: set if writing output to a file, this will also report on the console");
+                out.write("  -forceStatus: set if writing output to a file, this will also report on the console\r\n");
+                out.write("  -vpa: don't carry out LTSF test or test for Security Classification\r\n");
                 out.write("\r\n");
                 out.write(" Obsolete options:\r\n");
                 out.write("  -parseVEO: parse the original VEO, not a copy stripped of its content files (much slower)\r\n");
@@ -283,6 +287,9 @@ public class VEOCheck {
             if (strict) {
                 out.write(" Strict conformance to standard,\r\n");
             }
+            if (vpa) {
+                out.write(" VPA mode: don't test for LTSF or Security Classification,\r\n");
+            }
             if (da) {
                 out.write(" Digital archive requirement,\r\n");
             }
@@ -321,11 +328,12 @@ public class VEOCheck {
      * validation)
      * @param logLevel logging level (INFO = verbose, FINE = debug)
      * @param ltsfs long term sustainable formats
+     * @param vpa true if being run from VPA - don't test for LTSF or SecClass
      * @param migration true if migrating from old DSA - back off on some of the
      * validation
      * @param results if not null, summarise error messages here
      */
-    public VEOCheck(Path dtd, Level logLevel, LTSF ltsfs, boolean migration, ResultSummary results) {
+    public VEOCheck(Path dtd, Level logLevel, LTSF ltsfs, boolean vpa, boolean migration, ResultSummary results) {
 
         // default logging
         LOG.getParent().setLevel(logLevel);
@@ -365,10 +373,11 @@ public class VEOCheck {
         this.results = results;
         help = false;
         forceProgressReport = false;
+        this.vpa = vpa;
 
         // set up standard tests...
         parse = new ParseVEO(verbose, da, strict, oneLayer, out, results);
-        valueTester = new TestValues(verbose, strict, da, oneLayer, this.ltsfs, migration, out, results);
+        valueTester = new TestValues(verbose, strict, vpa, da, oneLayer, this.ltsfs, migration, out, results);
         virusTester = new TestViruses(verbose, strict, da, oneLayer, out, results);
         signatureTester = new TestSignatures(verbose, debug, strict, da, oneLayer, out, results);
     }
@@ -390,6 +399,7 @@ public class VEOCheck {
      * <li>-signatures perform tests on signatures
      * <li>-values perform tests on values
      * <li>-f formatFile read the long term sustainable formats from formatFile
+     * <li>-vpa VPA mode; do not test for LTSF or Security Classification
      * <li>-out &lt;file&gt; write test results to file
      * <li>-v1.2 force tests for version 1
      * <li>-v2 force tests for version 2
@@ -432,7 +442,7 @@ public class VEOCheck {
      */
     final public void parseCommandArgs(String args[]) throws VEOFatal {
         int i;
-        String usage = "VEOCheck [-all] [-signatures] [-values] [-virus] [-extract] -f LTSFFile -dtd <dtdFile> [-sr] [-strict] [-da] [-parseVEO] [-oneLayer] [-v1.2|-v2] [-verbose] [-debug] [-out <file>] [-t <tempDir>] <files>+";
+        String usage = "VEOCheck [-all] [-signatures] [-values] [-virus] [-extract] -f LTSFFile -dtd <dtdFile> [-sr] [-strict] [-vpa] [-da] [-parseVEO] [-oneLayer] [-v1.2|-v2] [-verbose] [-debug] [-out <file>] [-t <tempDir>] <files>+";
 
         // not in headless mode...
         headless = false;
@@ -456,6 +466,9 @@ public class VEOCheck {
                     break;
                 case "-strict": // test strictly according to the standard
                     strict = true;
+                    break;
+                case "-vpa": // VPA mose
+                    vpa = true;
                     break;
                 case "-da": // test according to what the da will accept
                     da = true;
@@ -605,7 +618,7 @@ public class VEOCheck {
 
         // set up standard tests...
         parse = new ParseVEO(verbose, da, strict, oneLayer, out, results);
-        valueTester = new TestValues(verbose, strict, da, oneLayer, this.ltsfs, false, out, results);
+        valueTester = new TestValues(verbose, strict, vpa, da, oneLayer, this.ltsfs, false, out, results);
         virusTester = new TestViruses(verbose, strict, da, oneLayer, out, results);
         signatureTester = new TestSignatures(verbose, false, strict, da, oneLayer, out, results);
 

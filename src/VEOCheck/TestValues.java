@@ -47,14 +47,14 @@ public class TestValues extends TestSupport {
     int layer;                  // this layer of modified or onion VEO
     String thisLayerVersion;    // version according vers:Version
     String thisLayerType;	// type of VEO according to vers:ObjectType
-    String originalVEOType;	// original type of VEO according to
-    // the vers:originalVEOType attribute
+    String originalVEOType;	// original type of VEO according to the vers:originalVEOType attribute
     boolean inRevisedVEO;	// true if in a vers:RevisedVEO element
     boolean inOriginalVEO;	// true if in a vers:OriginalVEO element
     String schemeType;          // type of title scheme
     String currentContext;	// current context of VEO
     HashMap<String, Node> nodeLabels; // hash table of vers:id
     LTSF ltsfs;                 // list of valid formats
+    boolean vpa;                // true if being run from VPA - if so, don't test for LTSF or Security Classification present
     boolean migration;          // true if migrating from old DSA - back off on some of the validation
 
     // Logging
@@ -65,14 +65,16 @@ public class TestValues extends TestSupport {
      *
      * @param verbose
      * @param strict
+     * @param vpa true if being run from VPA (don't test LTSF or Security Class)
      * @param da
      * @param oneLayer
-     * @param validFormats
+     * @param ltsfs
      * @param migration true if migrating from old DSA - back off on some of the
      * validation
      * @param out
+     * @param results
      */
-    public TestValues(boolean verbose, boolean strict, boolean da, boolean oneLayer, LTSF ltsfs, boolean migration, Writer out, ResultSummary results) {
+    public TestValues(boolean verbose, boolean strict, boolean vpa, boolean da, boolean oneLayer, LTSF ltsfs, boolean migration, Writer out, ResultSummary results) {
         super(verbose, strict, da, oneLayer, out, results);
         errorMsg = new StringBuffer();
 
@@ -86,6 +88,7 @@ public class TestValues extends TestSupport {
         schemeType = null;
         nodeLabels = new HashMap<>();
         this.ltsfs = ltsfs;
+        this.vpa = vpa;
         this.migration = migration;
     }
 
@@ -1096,35 +1099,38 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:SecurityClassification (130)
-     * 20191209 - Added the classifications Unofficial to Personal Privacy
-     * 20200205 - Forced a relaxed test of equality a/c transfer request
-     * 20220408 - Added 'Not Reviewed' a/c transfer request and further relaxed value comparison
+     * TestSupport a vers:SecurityClassification (130) 20191209 - Added the
+     * classifications Unofficial to Personal Privacy 20200205 - Forced a
+     * relaxed test of equality a/c transfer request 20220408 - Added 'Not
+     * Reviewed' a/c transfer request and further relaxed value comparison
+     * 20230227 - do not carry out this test if being called from the VPA
      */
     private boolean testSecurityClassification(Node n) {
         boolean passed = true;
 
         // test for controlled values
-        startValueError(n, 25, true);
-        Error("which must be: ");
-        if (!checkValueRelaxed(n, "Unclassified", ", ")
-                && !checkValueRelaxed(n, "Not Reviewed", ", ")
-                && !checkValueRelaxed(n, "In-Confidence", ", ")
-                && !checkValueRelaxed(n, "Protected", ", ")
-                && !checkValueRelaxed(n, "Highly Protected", ", ")
-                && !checkValueRelaxed(n, "Restricted", ", ")
-                && !checkValueRelaxed(n, "Confidential", ", ")
-                && !checkValueRelaxed(n, "Secret", ", ")
-                && !checkValueRelaxed(n, "Top Secret", ", ")
-                && !checkValueRelaxed(n, "Unofficial", ", ")
-                && !checkValueRelaxed(n, "OFFICIAL", ", ")
-                && !checkValueRelaxed(n, "OFFICIAL:Sensitive", ", ")
-                && !checkValueRelaxed(n, "Cabinet-in-Confidence", ", ")
-                && !checkValueRelaxed(n, "Legal Privilege", ", ")
-                && !checkValueRelaxed(n, "Legislative Secrecy", ", or ")
-                && !checkValueRelaxed(n, "Personal Privacy", " ")) {
-            confirmError();
-            passed = false;
+        if (!vpa) {
+            startValueError(n, 25, true);
+            Error("which must be: ");
+            if (!checkValueRelaxed(n, "Unclassified", ", ")
+                    && !checkValueRelaxed(n, "Not Reviewed", ", ")
+                    && !checkValueRelaxed(n, "In-Confidence", ", ")
+                    && !checkValueRelaxed(n, "Protected", ", ")
+                    && !checkValueRelaxed(n, "Highly Protected", ", ")
+                    && !checkValueRelaxed(n, "Restricted", ", ")
+                    && !checkValueRelaxed(n, "Confidential", ", ")
+                    && !checkValueRelaxed(n, "Secret", ", ")
+                    && !checkValueRelaxed(n, "Top Secret", ", ")
+                    && !checkValueRelaxed(n, "Unofficial", ", ")
+                    && !checkValueRelaxed(n, "OFFICIAL", ", ")
+                    && !checkValueRelaxed(n, "OFFICIAL:Sensitive", ", ")
+                    && !checkValueRelaxed(n, "Cabinet-in-Confidence", ", ")
+                    && !checkValueRelaxed(n, "Legal Privilege", ", ")
+                    && !checkValueRelaxed(n, "Legislative Secrecy", ", or ")
+                    && !checkValueRelaxed(n, "Personal Privacy", " ")) {
+                confirmError();
+                passed = false;
+            }
         }
         return passed;
     }
@@ -1426,8 +1432,8 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:Document (270) The source for the MIME types is the
-     * official IANA list
+     * Test a vers:Document (270) The source for the MIME types is the official
+     * IANA list
      * http://www.iana.org/assignments/media-types/media-types.xhtml#text, which
      * has been checked against the Library of Congress files type information
      * http://www.digitalpreservation.gov/formats
@@ -1443,26 +1449,28 @@ public class TestValues extends TestSupport {
         StringBuffer fmtsFound;
 
         // test to see if Document contains a valid long term preservation
-        // format encoding
-        nl = ((Element) n).getElementsByTagName("vers:RenderingKeywords");
-        foundLtpf = false;
-        fmtsFound = new StringBuffer();
-        for (i = 0; i < nl.getLength() && !foundLtpf; i++) {
-            n1 = (Element) nl.item(i);
-            s = getValue(n1).trim().toLowerCase();
-            fmtsFound.append(s);
-            foundLtpf = ltsfs.isV2LTSF(s);
-        }
-        if (!foundLtpf) {
-            startError(10, "Document without Long Term Preservation Format");
-            Error("A <Document> (M114) element must contain an <Encoding> (M126) element with a valid long term preservation format for acceptance into the digital archive. ");
-            if (nl.getLength() == 0) {
-                Error("The Document has no <vers:RenderingKeywords> (M132) elements and so no long term preservation formats can be identified");
-            } else {
-                Error("Formats found in this Document are: " + fmtsFound.toString());
+        // format encoding (only if not being called from VPA)
+        if (!vpa) {
+            nl = ((Element) n).getElementsByTagName("vers:RenderingKeywords");
+            foundLtpf = false;
+            fmtsFound = new StringBuffer();
+            for (i = 0; i < nl.getLength() && !foundLtpf; i++) {
+                n1 = (Element) nl.item(i);
+                s = getValue(n1).trim().toLowerCase();
+                fmtsFound.append(s);
+                foundLtpf = ltsfs.isV2LTSF(s);
             }
-            confirmError();
-            passed = false;
+            if (!foundLtpf) {
+                startError(10, "Document without Long Term Preservation Format");
+                Error("A <Document> (M114) element must contain an <Encoding> (M126) element with a valid long term preservation format for acceptance into the digital archive. ");
+                if (nl.getLength() == 0) {
+                    Error("The Document has no <vers:RenderingKeywords> (M132) elements and so no long term preservation formats can be identified");
+                } else {
+                    Error("Formats found in this Document are: " + fmtsFound.toString());
+                }
+                confirmError();
+                passed = false;
+            }
         }
 
         // test for attributes in V1 VEOs
