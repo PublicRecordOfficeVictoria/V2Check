@@ -174,12 +174,8 @@ public class PullApartVEO extends DefaultHandler {
         String s;
 
         // check parameters
-        if (inVeo == null) {
-            throw new VEOError("inVEO must not be null");
-        }
-        if (outVeo == null) {
-            throw new VEOError("outVEO must not be null");
-        }
+        assert (inVeo != null);
+        assert (outVeo != null);
 
         // remember the veo name without the file extension
         s = inVeo.getFileName().toString();
@@ -204,7 +200,7 @@ public class PullApartVEO extends DefaultHandler {
             osw = new OutputStreamWriter(fos, "UTF-8");
             bw = new BufferedWriter(osw);
         } catch (IOException e) {
-            throw new VEOError("Failed opening input and output files: " + e.toString());
+            throw new VEOError("PullApartVEO", "extractDocumentData", 1, "Failed opening input and output files: " + e.toString());
         }
 
         // start the parse
@@ -227,7 +223,7 @@ public class PullApartVEO extends DefaultHandler {
             } catch (IOException ioe) {
                 /* ignore */
             }
-            throw new VEOError("Parse error: " + e.getMessage());
+            throw new VEOError("PullApartVEO", "extractDocumentData", 1, "Parse error: " + e.getMessage());
         }
 
         // close input and output streams

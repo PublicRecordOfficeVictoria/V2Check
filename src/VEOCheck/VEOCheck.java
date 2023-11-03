@@ -143,10 +143,11 @@ public class VEOCheck {
      * 20220408 3.17 Added 'Not Reviewed' as a security classification and further relaxed value comparison for this element a/c request by user
      * 20220520 3.18 Changed to catch invalid file names (e.g. Paths.get() & in resolve())
      * 20230227 3.19 Added -vpa mode (do not check for valid LTSF or SecurityClassification value)
+     * 20231103 3.20 Updated to work with removal of VEOError(string)
      * </pre>
      */
     static String version() {
-        return ("3.19");
+        return ("3.20");
     }
 
     /**
@@ -201,7 +202,7 @@ public class VEOCheck {
                 fos = new FileOutputStream(outputFile.toFile());
                 out = new OutputStreamWriter(fos, Charset.forName("UTF-8"));
             } catch (IOException ioe) {
-                throw new VEOFatal("Cannot open output file for writing: " + ioe.toString());
+                throw new VEOFatal("VEOCheck", 1, "Cannot open output file for writing: " + ioe.toString());
             }
         }
 
@@ -317,7 +318,7 @@ public class VEOCheck {
             }
             out.write("\r\n");
         } catch (IOException ioe) {
-            throw new VEOFatal("Failed trying to write to output: " + ioe.getMessage());
+            throw new VEOFatal("VEOCheck", 2, "Failed trying to write to output: " + ioe.getMessage());
         }
     }
 
@@ -449,7 +450,7 @@ public class VEOCheck {
 
         // must have at least one command argument...
         if (args.length == 0) {
-            throw new VEOFatal("No arguments. Usage: " + usage);
+            throw new VEOFatal("VEOCheck", "parseCommandArgs", 1, "No arguments. Usage: " + usage);
         }
 
         // go through list of command arguments
@@ -484,19 +485,19 @@ public class VEOCheck {
                 case "-d": // delay for virus checking
                     i++;
                     if (i == args.length) {
-                        throw new VEOFatal("Missing integer after '-d'\nUsage: " + usage);
+                        throw new VEOFatal("VEOCheck", "parseCommandArgs", 2, "Missing integer after '-d'\nUsage: " + usage);
                     }
                     delay = Integer.parseInt(args[i]);
                     break;
                 case "-f": // specify a format file
                     i++;
                     if (i == args.length) {
-                        throw new VEOFatal("Missing format file after '-f'\nUsage: " + usage);
+                        throw new VEOFatal("VEOCheck", "parseCommandArgs", 3, "Missing format file after '-f'\nUsage: " + usage);
                     }
                     try {
                         ltsfs = new LTSF(Paths.get(args[i]));
                     } catch (VEOError | InvalidPathException ve) {
-                        throw new VEOFatal("Could not parse format file '" + args[i] + "' due to: " + ve.getMessage());
+                        throw new VEOFatal("VEOCheck", "parseCommandArgs", 4, "Could not parse format file '" + args[i] + "' due to: " + ve.getMessage());
                     }
                     break;
                 case "-eicar": // use the EICAR testing method rather than seeing if the mcshield software is running
@@ -511,21 +512,21 @@ public class VEOCheck {
                     if (dtd == null) {
                         useStdDtd = true;
                     } else {
-                        throw new VEOFatal("Cannot use '-dtd' and '-usestddtd' together");
+                        throw new VEOFatal("VEOCheck", "parseCommandArgs", 5, "Cannot use '-dtd' and '-usestddtd' together");
                     }
                     break;
                 case "-dtd": // specify output file
                     i++;
                     if (i == args.length) {
-                        throw new VEOFatal("Missing dtd file after '-dtd'\nUsage: " + usage);
+                        throw new VEOFatal("VEOCheck", "parseCommandArgs", 6, "Missing dtd file after '-dtd'\nUsage: " + usage);
                     }
                     try {
                         dtd = Paths.get(args[i]);
                     } catch (InvalidPathException ve) {
-                        throw new VEOFatal("Could not parse format file '" + args[i] + "' due to: " + ve.getMessage());
+                        throw new VEOFatal("VEOCheck", "parseCommandArgs", 7, "Could not parse format file '" + args[i] + "' due to: " + ve.getMessage());
                     }
                     if (useStdDtd) {
-                        throw new VEOFatal("Cannot use '-dtd' and '-usestddtd' together");
+                        throw new VEOFatal("VEOCheck", "parseCommandArgs", 8, "Cannot use '-dtd' and '-usestddtd' together");
                     }
                     break;
                 case "-signatures": // test signatures in VEO
@@ -557,23 +558,23 @@ public class VEOCheck {
                 case "-out": // specify output file
                     i++;
                     if (i == args.length) {
-                        throw new VEOFatal("Missing output file after '-out'\nUsage: " + usage);
+                        throw new VEOFatal("VEOCheck", "parseCommandArgs", 9, "Missing output file after '-out'\nUsage: " + usage);
                     }
                     try {
                         outputFile = Paths.get(args[i]);
                     } catch (InvalidPathException ve) {
-                        throw new VEOFatal("Could not parse format file '" + args[i] + "' due to: " + ve.getMessage());
+                        throw new VEOFatal("VEOCheck", "parseCommandArgs", 10, "Could not parse format file '" + args[i] + "' due to: " + ve.getMessage());
                     }
                     break;
                 case "-t": // specify a directory in which to put the extracted content
                     i++;
                     if (i == args.length) {
-                        throw new VEOFatal("Missing temporary directory after '-t'\nUsage: " + usage);
+                        throw new VEOFatal("VEOCheck", "parseCommandArgs", 11, "Missing temporary directory after '-t'\nUsage: " + usage);
                     }
                     try {
                         tempDir = Paths.get(args[i]);
                     } catch (InvalidPathException ve) {
-                        throw new VEOFatal("Could not parse format file '" + args[i] + "' due to: " + ve.getMessage());
+                        throw new VEOFatal("VEOCheck", "parseCommandArgs", 12, "Could not parse format file '" + args[i] + "' due to: " + ve.getMessage());
                     }
                     break;
                 case "-forcestatus":
@@ -581,12 +582,12 @@ public class VEOCheck {
                     break;
                 default: // anything not starting with a '-' is a VEO
                     if (args[i].charAt(0) == '-') {
-                        throw new VEOFatal("Unknown argument: '" + args[i] + "\nUsage: " + usage);
+                        throw new VEOFatal("VEOCheck", "parseCommandArgs", 13, "Unknown argument: '" + args[i] + "\nUsage: " + usage);
                     } else {
                         try {
                             files.add(Paths.get(args[i]));
                         } catch (InvalidPathException ipe) {
-                            throw new VEOFatal("Invalid file name for VEO: " + ipe.getMessage());
+                            throw new VEOFatal("VEOCheck", "parseCommandArgs", 14, "Invalid file name for VEO: " + ipe.getMessage());
                         }
                     }
                     break;
@@ -595,7 +596,7 @@ public class VEOCheck {
 
         // sanity check
         if (ltsfs == null) {
-            throw new VEOFatal("No LTSF file specified.\nUsage: " + usage);
+            throw new VEOFatal("VEOCheck", "parseCommandArgs", 15, "No LTSF file specified.\nUsage: " + usage);
         }
     }
 
@@ -628,10 +629,10 @@ public class VEOCheck {
                 try {
                     Files.createDirectory(tempDir);
                 } catch (IOException e) {
-                    throw new VEOError("Failed creating temporary directory: " + e);
+                    throw new VEOError("VEOCheck", "testVEOs", 1, "Failed creating temporary directory: " + e);
                 }
             } else if (!Files.isDirectory(tempDir)) {
-                throw new VEOError("Temporary directory " + tempDir.toString() + " already exists but is not a directory");
+                throw new VEOError("VEOCheck", "testVEOs", 2, "Temporary directory " + tempDir.toString() + " already exists but is not a directory");
             }
         } else {
             tempDir = Paths.get(".");
@@ -678,7 +679,7 @@ public class VEOCheck {
         try {
             filePath = file.toFile().getCanonicalPath();
         } catch (IOException ioe) {
-            throw new VEOError("Failed to identify file/directory '" + file.toString() + "' because: " + ioe.getMessage());
+            throw new VEOError("VEOCheck", "check", 1, "Failed to identify file/directory '" + file.toString() + "' because: " + ioe.getMessage());
         }
 
         if (!Files.exists(file)) {
@@ -812,7 +813,7 @@ public class VEOCheck {
             try {
                 Files.delete(p1);
             } catch (IOException ioe) {
-                throw new VEOError("Failed deleting: " + ioe.getMessage());
+                throw new VEOError("VEOCheck", "checkVEO", 1, "Failed deleting: " + ioe.getMessage());
             }
         }
         return overallResult;
@@ -861,7 +862,7 @@ public class VEOCheck {
                 generateEICAR(dir, "eicarStart.txt");
             }
         } catch (VEOError | IOException e) {
-            throw new VEOError("VIRUS CHECKING FAILED: Content not checked for viruses as " + e.getMessage() + "\n");
+            throw new VEOError("VEOCheck", "checkVirusScannerRunning", 1, "VIRUS CHECKING FAILED: Content not checked for viruses as " + e.getMessage() + "\n");
         }
 
         // record the fact that the check was made
@@ -908,7 +909,7 @@ public class VEOCheck {
         try {
             proc = rt.exec(CMD);
         } catch (IOException e) {
-            throw new VEOError("Couldn't execute command to confirm McAfee is running (" + CMD + "): " + e.toString());
+            throw new VEOError("VEOCheck", "testMcAffee", 1, "Couldn't execute command to confirm McAfee is running (" + CMD + "): " + e.toString());
         }
 
         // drain the standard out looking for the specified process 
@@ -944,11 +945,11 @@ public class VEOCheck {
         try {
             res = proc.waitFor();
         } catch (InterruptedException e) {
-            throw new VEOError("Checking McAfee service was interupted (" + CMD + "): " + e.toString());
+            throw new VEOError("VEOCheck", "testMcAffee", 2, "Checking McAfee service was interupted (" + CMD + "): " + e.toString());
         }
         // out.write("Exec: '" + CMD + "' returned: " + res + " McAfee Running: " + mcAfeeRunning + "\n"); 
         if (!mcAfeeRunning) {
-            throw new VEOError("McAfee virus scanner is NOT running. Returned: " + res + "\n");
+            throw new VEOError("VEOCheck", "testMcAffee", 3, "McAfee virus scanner is NOT running. Returned: " + res + "\n");
         }
     }
 
@@ -969,13 +970,13 @@ public class VEOCheck {
         try {
             eicar = dir.resolve(file);
         } catch (InvalidPathException ipe) {
-            throw new VEOError("Invalid file name (" + file + "): " + ipe.getMessage());
+            throw new VEOError("VEOCheck", "generateEICAR", 1, "Invalid file name (" + file + "): " + ipe.getMessage());
         }
         if (Files.exists(eicar)) {
             try {
                 Files.delete(eicar);
             } catch (IOException ioe) {
-                throw new VEOError("Failed to delete '" + eicar.toString() + "':" + ioe.toString());
+                throw new VEOError("VEOCheck", "generateEICAR", 2, "Failed to delete '" + eicar.toString() + "':" + ioe.toString());
             }
         }
 
@@ -983,23 +984,23 @@ public class VEOCheck {
         try {
             fos = new FileOutputStream(eicar.toFile());
         } catch (FileNotFoundException e) {
-            throw new VEOError("Failed to create '" + eicar.toString() + "': " + e.toString());
+            throw new VEOError("VEOCheck", "generateEICAR", 3, "Failed to create '" + eicar.toString() + "': " + e.toString());
         }
         osw = new OutputStreamWriter(fos, Charset.forName("UTF-8"));
         try {
             osw.write("X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*");
         } catch (IOException e) {
-            throw new VEOError("Failed in writing to '" + eicar.toString() + "': " + e.toString());
+            throw new VEOError("VEOCheck", "generateEICAR", 4, "Failed in writing to '" + eicar.toString() + "': " + e.toString());
         }
         try {
             osw.close();
         } catch (IOException e) {
-            throw new VEOError("Failed in closing osw in '" + eicar.toString() + "': " + e.toString());
+            throw new VEOError("VEOCheck", "generateEICAR", 5, "Failed in closing osw in '" + eicar.toString() + "': " + e.toString());
         }
         try {
             fos.close();
         } catch (IOException e) {
-            throw new VEOError("Failed in closing fos in '" + eicar.toString() + "': " + e.toString());
+            throw new VEOError("VEOCheck", "generateEICAR", 6, "Failed in closing fos in '" + eicar.toString() + "': " + e.toString());
         }
 
         // delay to give virus checker time to work
@@ -1011,7 +1012,7 @@ public class VEOCheck {
 
         // check that virus checker removed first EICAR file
         if (Files.exists(eicar)) {
-            throw new VEOError("Virus checker did not remove '" + eicar.toString() + "'. Virus checking is consequently not effective. This indicates virus checker is either not running or not detecting creation of virus infected files");
+            throw new VEOError("VEOCheck", "generateEICAR", 7, "Virus checker did not remove '" + eicar.toString() + "'. Virus checking is consequently not effective. This indicates virus checker is either not running or not detecting creation of virus infected files");
         }
     }
 
@@ -1039,10 +1040,10 @@ public class VEOCheck {
         signatureTester.setOutput(out);
 
         if (!Files.exists(veo)) {
-            throw new VEOError("  FAILED: VEO does not exist\r\n");
+            throw new VEOError("VEOCheck", "vpaTestVEO", 1, "  FAILED: VEO does not exist\r\n");
         }
         if (!Files.isReadable(veo)) {
-            throw new VEOError("  FAILED: cannot read VEO\r\n");
+            throw new VEOError("VEOCheck", "vpaTestVEO", 2, "  FAILED: cannot read VEO\r\n");
         }
 
         // first parse the file; if it fails return and stop this test
