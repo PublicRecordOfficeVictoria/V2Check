@@ -32,13 +32,13 @@ public class TestViruses extends TestSupport {
      *
      * @param verbose
      * @param strict
-     * @param da
      * @param oneLayer
      * @param out
+     * @param results
      */
     public TestViruses(boolean verbose, boolean strict,
-            boolean da, boolean oneLayer, Writer out, ResultSummary results) {
-        super(verbose, strict, da, oneLayer, out, results);
+            boolean oneLayer, Writer out, ResultSummary results) {
+        super(verbose, strict, oneLayer, out, results);
     }
 
     /**
@@ -55,6 +55,7 @@ public class TestViruses extends TestSupport {
     /**
      * Test if files have been found to be virus infected.
      *
+     * @param filename
      * @param files list of files to be tested
      * @param delay number of seconds to delay to give the virus checker time to
      * work
@@ -66,7 +67,7 @@ public class TestViruses extends TestSupport {
         int i;
         boolean fail;
 
-        this.filename = filename;
+        this.veoName = filename;
         
         startSubTest("TESTING FOR VIRUSES");
         success = true;
@@ -84,16 +85,19 @@ public class TestViruses extends TestSupport {
             file = files.get(i);
             p = Paths.get(".", file);
             if (!Files.exists(p)) {
-                println("Content file '" + p + "' was removed - probably because it failed a virus check");
+                failed("TestViruses", "performTest", 1, "Content file '" + p.toString() + "' was removed - probably because it failed a virus check");
                 fail = true;
             }
         }
 
         if (!fail) {
             passed("No viruses found");
-        } else {
-            failed("", true);
         }
         return fail;
+    }
+    
+    @Override
+    public String toString() {
+        return null;
     }
 }

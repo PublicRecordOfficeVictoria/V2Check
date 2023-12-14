@@ -31,8 +31,10 @@ package VEOCheck;
 import VERSCommon.LTSF;
 import VERSCommon.ResultSummary;
 import VERSCommon.ResultSummary.Type;
+import VERSCommon.VEOFailure;
 import java.io.Writer;
 import java.util.HashMap;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.w3c.dom.Element;
 import org.w3c.dom.NamedNodeMap;
@@ -66,7 +68,6 @@ public class TestValues extends TestSupport {
      * @param verbose
      * @param strict
      * @param vpa true if being run from VPA (don't test LTSF or Security Class)
-     * @param da
      * @param oneLayer
      * @param ltsfs
      * @param migration true if migrating from old DSA - back off on some of the
@@ -74,8 +75,8 @@ public class TestValues extends TestSupport {
      * @param out
      * @param results
      */
-    public TestValues(boolean verbose, boolean strict, boolean vpa, boolean da, boolean oneLayer, LTSF ltsfs, boolean migration, Writer out, ResultSummary results) {
-        super(verbose, strict, da, oneLayer, out, results);
+    public TestValues(boolean verbose, boolean strict, boolean vpa, boolean oneLayer, LTSF ltsfs, boolean migration, Writer out, ResultSummary results) {
+        super(verbose, strict, oneLayer, out, results);
         errorMsg = new StringBuffer();
 
         forceVersion = null;
@@ -114,10 +115,11 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * This class tests the metadata in a VEO. It prints out the metadata in a
+     * This class tests the metadata in a VEO.It prints out the metadata in a
      * flat format (to aid checking) and checks that there are no empty
      * elements.
      *
+     * @param filename
      * @param veo the VEO to check
      * @return true if parse succeeded
      */
@@ -136,7 +138,7 @@ public class TestValues extends TestSupport {
         inRevisedVEO = false;
         inOriginalVEO = false;
         schemeType = null;
-        this.filename = filename;
+        this.veoName = filename;
         nodeLabels.clear();
 
         // output test header
@@ -169,7 +171,7 @@ public class TestValues extends TestSupport {
         if (checkForEmptyElements(veo, 1)) {
             passed("The VEO contained no empty elements");
         } else {
-            failed("The VEO contained the following empty elements:", true);
+            failed("TestValues", "performTest", 1, "The VEO contained the following empty elements:");
         }
 
         // check values for validity against specification
@@ -177,8 +179,6 @@ public class TestValues extends TestSupport {
         labelNodes(veo);
         if (checkInvalidValues(null, veo, 1)) {
             passed("The VEO contained no invalid elements");
-        } else {
-            failed("The VEO contained the following invalid elements", true);
         }
         return success;
     }
@@ -346,7 +346,8 @@ public class TestValues extends TestSupport {
 
     /**
      * Find empty elements (i.e. elements with no real content). These shouldn't
-     * exist, and the test will fail if any are found.
+     * exist, and the test will fail if any are found. Returns true if all
+     * elements have content
      */
     private boolean checkForEmptyElements(Node n, int indent) {
         Node child;
@@ -379,12 +380,6 @@ public class TestValues extends TestSupport {
             }
         }
 
-        // print element out if it is empty
-        if (elementIsEmpty(n)) {
-            print("  <" + n.getNodeName() + ">");
-            return false;
-        }
-
         // do not check inside onion VEO or originalVEO if oneLayer is set
         if (oneLayer) {
             if (((n.getNodeName().equals("vers:DocumentData"))
@@ -394,13 +389,16 @@ public class TestValues extends TestSupport {
             }
         }
 
+        // print element out if it is empty
+        passed = !elementIsEmpty(n);
+        if (!passed) {
+            capture("  <" + n.getNodeName() + ">");
+        }
+
         // otherwise check each child
         child = n.getFirstChild();
-        passed = true;
         while (child != null) {
-            if (!checkForEmptyElements(child, indent + 1)) {
-                passed = false;
-            }
+            passed &= checkForEmptyElements(child, indent + 1);
             child = child.getNextSibling();
         }
         return passed;
@@ -536,164 +534,118 @@ public class TestValues extends TestSupport {
             return true;
         }
 
-        if (n.getNodeName().equals("vers:VERSEncapsulatedObject")) {
-            return testVERSEncapsulatedObject(n);
-        }
-        if (n.getNodeName().equals("vers:Version")) {
-            return testVersion(n);
-        }
-        if (n.getNodeName().equals("vers:SignatureBlock")) {
-            return testSignatureBlock(n);
-        }
-        if (n.getNodeName().equals("vers:LockSignatureBlock")) {
-            return testLockSignatureBlock(n);
-        }
-        if (n.getNodeName().equals("vers:SignatureAlgorithmIdentifier")) {
-            return testSignatureAlgorithmIdentifier(n);
-        }
-        if (n.getNodeName().equals("vers:SignatureDate")) {
-            return testDateValue(n, 136);
-        }
-        if (n.getNodeName().equals("vers:SignedObject")) {
-            return testSignedObject(n);
-        }
-        if (n.getNodeName().equals("vers:ObjectType")) {
-            return testObjectType(n);
-        }
-        if (n.getNodeName().equals("vers:ObjectContent")) {
-            return testObjectContent(n);
-        }
-        if (n.getNodeName().equals("vers:ObjectCreationDate")) {
-            return testDateValue(n, 8);
-        }
-        if (n.getNodeName().equals("vers:ModifiedVEO")) {
-            return testModifiedVEO(n);
-        }
-        if (n.getNodeName().equals("vers:RevisedVEO")) {
-            return testRevisedVEO(n);
-        }
-        if (n.getNodeName().equals("vers:OriginalVEO")) {
-            return testOriginalVEO(n);
-        }
-        if (n.getNodeName().equals("vers:RecordMetadata")) {
-            return testRecordMetadata(n);
-        }
-        if (n.getNodeName().equals("naa:SecurityClassification")) {
-            return testSecurityClassification(n);
-        }
-        if (n.getNodeName().equals("naa:AccessStatus")) {
-            return testAccessStatus(n);
-        }
-        if (n.getNodeName().equals("naa:SchemeType")) {
-            return testSchemeType(n);
-        }
-        if (n.getNodeName().equals("vers:Subject")) {
-            return testSubject(n);
-        }
-        if (n.getNodeName().equals("vers:AuxiliaryDescription")) {
-            return testAuxiliaryDescription(n);
-        }
-        if (n.getNodeName().equals("naa:RelatedItemId")) {
-            return testRelatedItemId(n);
-        }
-        if (n.getNodeName().equals("vers:Date")) {
-            return testVERSDate(n);
-        }
-        if (n.getNodeName().equals("naa:DateTimeCreated")) {
-            return testDateValue(n, 55);
-        }
-        if (n.getNodeName().equals("naa:DateTimeTransacted")) {
-            return testDateValue(n, 56);
-        }
-        if (n.getNodeName().equals("naa:DateTimeRegistered")) {
-            return testDateValue(n, 57);
-        }
-        if (n.getNodeName().equals("vers:DateTimeClosed")) {
-            return testDateValue(n, 144);
-        }
-        if (n.getNodeName().equals("naa:AggregationLevel")) {
-            return testAggregationLevel(n);
-        }
-        if (n.getNodeName().equals("naa:EventDateTime")) {
-            return testDateValue(n, 68);
-        }
-        if (n.getNodeName().equals("naa:UseDateTime")) {
-            return testDateValue(n, 73);
-        }
-        if (n.getNodeName().equals("naa:UseType")) {
-            return testUseType(n);
-        }
-        if (n.getNodeName().equals("naa:ActionDateTime")) {
-            return testDateValue(n, 78);
-        }
-        if (n.getNodeName().equals("naa:NextActionDue")) {
-            return testDateValue(n, 82);
-        }
-        if (n.getNodeName().equals("naa:DisposalStatus")) {
-            return testDisposalStatus(n);
-        }
-        if (n.getNodeName().equals("naa:RefersTo")) {
-            return testRefersTo(n);
-        }
-        if (n.getNodeName().equals("vers:VEOIdentifier")) {
-            return testVEOIdentifier(parent, n);
-        }
-        if (n.getNodeName().equals("vers:AgencyIdentifier")) {
-            return testAgencyIdentifier(n);
-        }
-        if (n.getNodeName().equals("vers:SeriesIdentifier")) {
-            return testSeriesIdentifier(n);
-        }
-        if (n.getNodeName().equals("naa:DisposalActionDue")) {
-            startValueError(n, 3, true);
-            Error("Value must be one of: ");
-            if (checkValue(n, "Null", " ")) {
-                return true;
-            }
-            return testDateValue(n, 91);
-        }
-        if (n.getNodeName().equals("vers:OriginatorsCopy")) {
-            return testOriginatorsCopy(n);
-        }
-        if (n.getNodeName().equals("vers:Document")) {
-            return testDocument(n);
-        }
-        if (n.getNodeName().equals("vers:DocumentRightsManagement")) {
-            return testDocumentRightsManagement(n);
-        }
-        // Document Language to do
-        if (n.getNodeName().equals("vers:DocumentDate")) {
-            return testDateValue(n, 123);
-        }
-        if (n.getNodeName().equals("vers:DocumentFunction")) {
-            return testDocumentFunction(n);
-        }
-        if (n.getNodeName().equals("vers:Encoding")) {
-            return testEncoding(n);
-        }
-        if (n.getNodeName().equals("vers:EncodingMetadata")) {
-            return testEncodingMetadata(n);
-        }
-        if (n.getNodeName().equals("vers:FileRendering")) {
-            return testFileRendering(n);
-        }
-        if (n.getNodeName().equals("vers:RenderingKeywords")) {
-            return testRenderingKeywords(n);
-        }
-        if (n.getNodeName().equals("vers:DocumentData")) {
-            return testDocumentData(n);
-        }
-        if (n.getNodeName().equals("vers:DateTimeModified")) {
-            return testDateValue(n, 157);
-        }
-        if (n.getNodeName().equals("vers:DisposalDate")) {
-            return testDateValue(n, 147);
+        switch (n.getNodeName()) {
+            case "vers:VERSEncapsulatedObject":
+                return testVERSEncapsulatedObject(n);
+            case "vers:Version":
+                return testVersion(n);
+            case "vers:SignatureBlock":
+                return testSignatureBlock(n);
+            case "vers:LockSignatureBlock":
+                return testLockSignatureBlock(n);
+            case "vers:SignatureAlgorithmIdentifier":
+                return testSignatureAlgorithmIdentifier(n);
+            case "vers:SignatureDate":
+                return testDateValue(n, 136);
+            case "vers:SignedObject":
+                return testSignedObject(n);
+            case "vers:ObjectType":
+                return testObjectType(n);
+            case "vers:ObjectContent":
+                return testObjectContent(n);
+            case "vers:ObjectCreationDate":
+                return testDateValue(n, 8);
+            case "vers:ModifiedVEO":
+                return testModifiedVEO(n);
+            case "vers:RevisedVEO":
+                return testRevisedVEO(n);
+            case "vers:OriginalVEO":
+                return testOriginalVEO(n);
+            case "vers:RecordMetadata":
+                return testRecordMetadata(n);
+            case "naa:SecurityClassification":
+                return testSecurityClassification(n);
+            case "naa:AccessStatus":
+                return testAccessStatus(n);
+            case "naa:SchemeType":
+                return testSchemeType(n);
+            case "vers:Subject":
+                return testSubject(n);
+            case "vers:AuxiliaryDescription":
+                return testAuxiliaryDescription(n);
+            case "naa:RelatedItemId":
+                return testRelatedItemId(n);
+            case "vers:Date":
+                return testVERSDate(n);
+            case "naa:DateTimeCreated":
+                return testDateValue(n, 55);
+            case "naa:DateTimeTransacted":
+                return testDateValue(n, 56);
+            case "naa:DateTimeRegistered":
+                return testDateValue(n, 57);
+            case "vers:DateTimeClosed":
+                return testDateValue(n, 144);
+            case "naa:AggregationLevel":
+                return testAggregationLevel(n);
+            case "naa:EventDateTime":
+                return testDateValue(n, 68);
+            case "naa:UseDateTime":
+                return testDateValue(n, 73);
+            case "naa:UseType":
+                return testUseType(n);
+            case "naa:ActionDateTime":
+                return testDateValue(n, 78);
+            case "naa:NextActionDue":
+                return testDateValue(n, 82);
+            case "naa:DisposalStatus":
+                return testDisposalStatus(n);
+            case "naa:RefersTo":
+                return testRefersTo(n);
+            case "vers:VEOIdentifier":
+                return testVEOIdentifier(parent, n);
+            case "vers:AgencyIdentifier":
+                return testAgencyIdentifier(n);
+            case "vers:SeriesIdentifier":
+                return testSeriesIdentifier(n);
+            case "naa:DisposalActionDue":
+                startValueError("checkElement", 1, n, 3, true);
+                continueError("Value must be one of: ");
+                if (checkValue(n, "Null", " ")) {
+                    return true;
+                }
+                return testDateValue(n, 91);
+            case "vers:OriginatorsCopy":
+                return testOriginatorsCopy(n);
+            case "vers:Document":
+                return testDocument(n);
+            case "vers:DocumentRightsManagement":
+                return testDocumentRightsManagement(n);
+            // Document Language to do
+            case "vers:DocumentDate":
+                return testDateValue(n, 123);
+            case "vers:DocumentFunction":
+                return testDocumentFunction(n);
+            case "vers:Encoding":
+                return testEncoding(n);
+            case "vers:EncodingMetadata":
+                return testEncodingMetadata(n);
+            case "vers:FileRendering":
+                return testFileRendering(n);
+            case "vers:RenderingKeywords":
+                return testRenderingKeywords(n);
+            case "vers:DocumentData":
+                return testDocumentData(n);
+            case "vers:DateTimeModified":
+                return testDateValue(n, 157);
+            case "vers:DisposalDate":
+                return testDateValue(n, 147);
+            default:
         }
         return true;
     }
 
     /**
-     * TestSupport a vers:VERSEncapsulatedObject (10)
+     * Test a vers:VERSEncapsulatedObject (10)
      */
     private boolean testVERSEncapsulatedObject(Node n) {
         boolean passed = true;
@@ -709,9 +661,9 @@ public class TestValues extends TestSupport {
             thisLayerVersion = forceVersion;
         } else {
             n1 = findElement((Element) n, "vers:Version");
-            if (n1 == null) {
-                startMissingError();
-                Error("A vers:VERSEncapsulatedObject (M1) element must contain a vers:Version (M3) element");
+            if (n1 == null) { // this should never occur as it would be a DTD violation
+                startMissingError("testVERSEncapsulatedObject", 1);
+                continueError("A vers:VERSEncapsulatedObject (M1) element must contain a vers:Version (M3) element");
                 confirmError();
                 thisLayerVersion = "Unknown";
                 passed = false;
@@ -722,12 +674,10 @@ public class TestValues extends TestSupport {
         thisLayerType = null;	// don't know yet...
 
         // test for correct namespace
-        if (layer == 1
-                && !testAttribute(n, 1, "xmlns:vers", versNamespace)) {
+        if (layer == 1 && !testAttribute("testVERSEncapsulatedObject", 2, n, 1, "xmlns:vers", versNamespace)) {
             passed = false;
         }
-        if (layer == 1
-                && !testAttribute(n, 1, "xmlns:naa", naaNamespace)) {
+        if (layer == 1 && !testAttribute("testVERSEncapsulatedObject", 3, n, 1, "xmlns:naa", naaNamespace)) {
             passed = false;
         }
 
@@ -735,14 +685,14 @@ public class TestValues extends TestSupport {
         // signature block
         if (thisLayerVersion.equals("2.0")) {
             if (!testElementExists(n, "vers:SignatureBlock")) {
-                startV2MissingError();
-                Error("A version 2.0 VEO must contain at least one <vers:SignatureBlock> (M134) element");
+                startV2MissingError("testVERSEncapsulatedObject", 4);
+                continueError("A version 2.0 VEO must contain at least one <vers:SignatureBlock> (M134) element");
                 confirmError();
                 passed = false;
             }
             if (!testElementExists(n, "vers:LockSignatureBlock")) {
-                startV2MissingError();
-                Error("A version 2.0 VEO must contain at least one <vers:LockSignatureBlock> (M152) element");
+                startV2MissingError("testVERSEncapsulatedObject", 5);
+                continueError("A version 2.0 VEO must contain at least one <vers:LockSignatureBlock> (M152) element");
                 confirmError();
                 passed = false;
             }
@@ -751,14 +701,14 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:Version (20)
+     * Test a vers:Version (20)
      */
     private boolean testVersion(Node n) {
         boolean passed = true;
 
         // test for controlled values
-        startValueError(n, 3, true);
-        Error("Value must be one of: ");
+        startValueError("testVersion", 1, n, 3, true);
+        continueError("Value must be one of: ");
         if (!checkValue(n, "1.2", " or ") && !checkValue(n, "2.0", " ")) {
             confirmError();
             passed = false;
@@ -768,8 +718,8 @@ public class TestValues extends TestSupport {
         // version in vers:Version
         if (forceVersion != null && layer == 1) {
             thisLayerVersion = forceVersion;
-            startValueError(n, 3, true);
-            Error("Value must be ");
+            startValueError("testVersion", 2, n, 3, true);
+            continueError("Value must be ");
             if (!checkValue(n, forceVersion, " ")) {
                 confirmError();
                 passed = false;
@@ -783,41 +733,39 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:SignatureBlock (30)
+     * Test a vers:SignatureBlock (30)
      */
     private boolean testSignatureBlock(Node n) {
         boolean passed = true;
 
         // error if version 1 and vers:id attribute present
-        if (thisLayerVersion.equals("1.2")
-                && findAttribute(n, "vers:id") != null) {
-            startV2inV1Error();
-            Error("A version 1 <vers:SignatureBlock> (M134) element cannot contain a vers:id attribute");
+        if (thisLayerVersion.equals("1.2") && findAttribute(n, "vers:id") != null) {
+            startV2inV1Error("testSignatureBlock", 1);
+            continueError("A version 1 <vers:SignatureBlock> (M134) element cannot contain a vers:id attribute");
             confirmError();
             passed = false;
         }
 
         // error if version 2 and vers:VEOVersion attribute not present
         if (thisLayerVersion.equals("2.0")) {
-            passed = checkVersId(n, 134);
+            passed = checkVersId("testSignatureBlock", 2, n, 134);
         }
         return passed;
     }
 
     /**
-     * TestSupport a vers:LockSignatureBlock (40)
+     * Test a vers:LockSignatureBlock (40)
      */
     private boolean testLockSignatureBlock(Node n) {
         boolean passed = true;
-        String element, id;
+        String id;
         Node attr, n1;
-        int i;
         String s[];
 
         // error if version 1 and lock signature block present
         if (thisLayerVersion.equals("1.2")) {
-            startV2inV1Error();
-            Error("A version 1 VEO cannot contain a <vers:LockSignatureBlock> (M152) element");
+            startV2inV1Error("testLockSignatureBlock", 1);
+            continueError("A version 1 VEO cannot contain a <vers:LockSignatureBlock> (M152) element");
             confirmError();
             passed = false;
         }
@@ -825,22 +773,20 @@ public class TestValues extends TestSupport {
         // get vers:signsSignatureBlock attribute node
         attr = findAttribute(n, "vers:signsSignatureBlock");
         if (attr == null) {
-            startMissingAttrError();
-            Error("A <vers:LockSignatureBlock> (M152) element must contain a vers:signsSignatureBlock attribute");
+            startMissingAttrError("testLockSignatureBlock", 2);
+            continueError("A <vers:LockSignatureBlock> (M152) element must contain a vers:signsSignatureBlock attribute");
             confirmError();
             return false;
         }
 
-        // check vers:signsSIgnatureBlock for conformance to pattern
+        // check vers:signsSignatureBlock for conformance to pattern
         id = attr.getNodeValue();
         s = id.split("-");
         if (s.length != 4
-                || !equals(s[0], "Revision")
-                || !testVersIdNumber(s[1])
-                || !equals(s[2], "Signature")
-                || !testVersIdNumber(s[3])) {
-            startAttrError(n, 152, attr, true);
-            Error("Attribute value must match the pattern 'Revision-<int>-Signature-<int>'");
+                || !equals(s[0], "Revision") || !testVersIdNumber(s[1])
+                || !equals(s[2], "Signature") || !testVersIdNumber(s[3])) {
+            startAttrError("testLockSignatureBlock", 3, n, 152, attr, true);
+            continueError("Attribute value must match the pattern 'Revision-<int>-Signature-<int>'");
             confirmError();
             passed = false;
         }
@@ -850,8 +796,8 @@ public class TestValues extends TestSupport {
         if (n1 == null
                 || n1.getNodeType() != Node.ELEMENT_NODE
                 || !n1.getNodeName().equals("vers:SignatureBlock")) {
-            startAttrError(n, 152, attr, true);
-            Error("Attribute value does not point to a <vers:SignatureBlock> (M134) element");
+            startAttrError("testLockSignatureBlock", 4, n, 152, attr, true);
+            continueError("Attribute value does not point to a <vers:SignatureBlock> (M134) element");
             confirmError();
             passed = false;
         }
@@ -860,14 +806,15 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:SignatureAlgorithmIdentifier (50)
+     * Test a vers:SignatureAlgorithmIdentifier (50)
      */
     private boolean testSignatureAlgorithmIdentifier(Node n) {
         boolean passed = true;
 
         // test for controlled values
-        startValueError(n, 150, true);
-        Error("Value must be one of: ");
+        /* This test is not necessary, as the algorithm identifiers are tested when validating the signature
+        startValueError("testSignatureAlgorithmIdentifier", 1, n, 150, true);
+        continueError("Value must be one of: ");
         if (!checkValue(n, "1.2.840.113549.1.1.5", ", ")
                 && !checkValue(n, "1.2.840.113549.1.1.11", ", ")
                 && !checkValue(n, "1.2.840.113549.1.1.13", " or ")
@@ -875,11 +822,12 @@ public class TestValues extends TestSupport {
             confirmError();
             passed = false;
         }
+         */
         return passed;
     }
 
     /**
-     * TestSupport a vers:SignedObject (60)
+     * Test a vers:SignedObject (60)
      */
     private boolean testSignedObject(Node n) {
         boolean passed = true;
@@ -887,10 +835,9 @@ public class TestValues extends TestSupport {
         String s1;
 
         // error if version 1 and vers:VEOVersion attribute present
-        if (thisLayerVersion.equals("1.2")
-                && findAttribute(n, "vers:VEOVersion") != null) {
-            startV2inV1Error();
-            Error("A version 1 <vers:SignedObject> (M4) element cannot contain a vers:VEOVersion attribute");
+        if (thisLayerVersion.equals("1.2") && findAttribute(n, "vers:VEOVersion") != null) {
+            startV2inV1Error("testSignedObject", 1);
+            continueError("A version 1 <vers:SignedObject> (M4) element cannot contain a vers:VEOVersion attribute");
             confirmError();
             passed = false;
         }
@@ -900,16 +847,16 @@ public class TestValues extends TestSupport {
         if (thisLayerVersion.equals("2.0")) {
             a = findAttribute(n, "vers:VEOVersion");
             if (a == null) {
-                startElementError(n, 4);
-                Error("A version 2.0 <vers:SignedObject> (M4) must contain a vers:VEOVersion attribute");
+                startElementError("testSignedObject", 2, n, 4);
+                continueError("A version 2.0 <vers:SignedObject> (M4) must contain a vers:VEOVersion attribute");
                 confirmError();
                 return false;
             }
 
             s1 = a.getNodeValue().trim();
             if (!s1.equals("2.0")) {
-                startAttrError(n, 4, a, true);
-                Error("which must be '2.0' to match <vers:Version> (M3) element");
+                startAttrError("testSignedObject", 3, n, 4, a, true);
+                continueError("which must be '2.0' to match <vers:Version> (M3) element");
                 confirmError();
                 passed = false;
             }
@@ -918,7 +865,7 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:ObjectType (70)
+     * Test a vers:ObjectType (70)
      */
     private boolean testObjectType(Node n) {
         boolean passed = true;
@@ -927,29 +874,27 @@ public class TestValues extends TestSupport {
 
         // test for controlled values
         if (thisLayerVersion.equals("1.2")) {
-            startValueError(n, 6, true);
-            Error("Value must be one of: ");
-            if (!checkValue(n, "File", " or ")
-                    && !checkValue(n, "Record", " ")) {
-                Error("in a version 1 VEO");
+            startValueError("testObjectType", 1, n, 6, true);
+            continueError("Value must be one of: ");
+            if (!checkValue(n, "File", " or ") && !checkValue(n, "Record", " ")) {
+                continueError("in a version 1 VEO");
                 confirmError();
                 passed = false;
             }
         }
         if (thisLayerVersion.equals("2.0")) {
-            startValueError(n, 6, true);
-            Error("Value must be one of: ");
+            startValueError("testObjectType", 2, n, 6, true);
+            continueError("Value must be one of: ");
             if (!checkValue(n, "File", ", ")
                     && !checkValue(n, "Record", " or ")
                     && !checkValue(n, "Modified VEO", " ")) {
-                Error("in a version 2 VEO");
+                continueError("in a version 2 VEO");
                 confirmError();
                 passed = false;
             }
-            if (inRevisedVEO
-                    && !equals(originalVEOType, getValue(n))) {
-                startValueError(n, 6, true);
-                Error("The value of the <vers:ObjectType> (M6) element in a <vers:RevisedVEO> (M158) element must match the value of the vers:OriginalVEOType attribute in the <vers:ModifiedVEO> (M156) element (which was " + originalVEOType + ")");
+            if (inRevisedVEO && !equals(originalVEOType, getValue(n))) {
+                startValueError("testObjectType", 3, n, 6, true);
+                continueError("The value of the <vers:ObjectType> (M6) element in a <vers:RevisedVEO> (M158) element must match the value of the vers:OriginalVEOType attribute in the <vers:ModifiedVEO> (M156) element (which was " + originalVEOType + ")");
                 confirmError();
                 inRevisedVEO = false;
                 passed = false;
@@ -957,8 +902,8 @@ public class TestValues extends TestSupport {
             if (inOriginalVEO
                     && !(equals(originalVEOType, getValue(n))
                     || equals("Modified VEO", getValue(n)))) {
-                startValueError(n, 6, true);
-                Error("The value of the <vers:ObjectType> (M6) element in a <vers:OriginalVEO> (M159) element must match the value of the vers:OriginalVEOType attribute in the <vers:ModifiedVEO> (M156) element (which was " + originalVEOType + ") or be 'Modified VEO'");
+                startValueError("testObjectType", 4, n, 6, true);
+                continueError("The value of the <vers:ObjectType> (M6) element in a <vers:OriginalVEO> (M159) element must match the value of the vers:OriginalVEOType attribute in the <vers:ModifiedVEO> (M156) element (which was " + originalVEOType + ") or be 'Modified VEO'");
                 confirmError();
                 inOriginalVEO = false;
                 passed = false;
@@ -968,29 +913,26 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:ObjectContent (80)
+     * Test a vers:ObjectContent (80)
      */
     private boolean testObjectContent(Node n) {
         boolean passed = true;
 
-        if (equals(thisLayerType, "File")
-                && !testElementExists(n, "vers:File")) {
-            startError(3, "Error in value of element <vers:ObjectContent> (M9).");
-            Error("The value of the <vers:ObjectType> (M6) element is 'File' but the <vers:ObjectContent> (M9) element does not contain a <vers:File> (M142) element");
+        if (equals(thisLayerType, "File") && !testElementExists(n, "vers:File")) {
+            startError("testObjectContent", 1, "Error in value of element <vers:ObjectContent> (M9)");
+            continueError("The value of the <vers:ObjectType> (M6) element is 'File' but the <vers:ObjectContent> (M9) element does not contain a <vers:File> (M142) element");
             confirmError();
             passed = false;
         }
-        if (equals(thisLayerType, "Record")
-                && !testElementExists(n, "vers:Record")) {
-            startError(3, "Error in value of element <vers:ObjectContent> (M9).");
-            Error("The value of the <vers:ObjectType> (M6) element is 'Record' but the <vers:ObjectContent> (M9) element does not contain a <vers:Record> (M10) element");
+        if (equals(thisLayerType, "Record") && !testElementExists(n, "vers:Record")) {
+            startError("testObjectContent", 2, "Error in value of element <vers:ObjectContent> (M9)");
+            continueError("The value of the <vers:ObjectType> (M6) element is 'Record' but the <vers:ObjectContent> (M9) element does not contain a <vers:Record> (M10) element");
             confirmError();
             passed = false;
         }
-        if (equals(thisLayerType, "Modified VEO")
-                && !testElementExists(n, "vers:ModifiedVEO")) {
-            startError(3, "Error in value of element <vers:ObjectContent> (M9).");
-            Error("The value of the <vers:ObjectType> (M6) element is 'Modified VEO' but the <vers:ObjectContent> (M9) element does not contain a <vers:ModifiedVEO> (M156) element");
+        if (equals(thisLayerType, "Modified VEO") && !testElementExists(n, "vers:ModifiedVEO")) {
+            startError("testObjectContent", 3, "Error in value of element <vers:ObjectContent> (M9)");
+            continueError("The value of the <vers:ObjectType> (M6) element is 'Modified VEO' but the <vers:ObjectContent> (M9) element does not contain a <vers:ModifiedVEO> (M156) element");
             confirmError();
             passed = false;
         }
@@ -998,7 +940,7 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:ModifiedVEO (90)
+     * Test a vers:ModifiedVEO (90)
      */
     private boolean testModifiedVEO(Node n) {
         boolean passed = true;
@@ -1009,8 +951,8 @@ public class TestValues extends TestSupport {
         s = originalVEOType;
         attr = findAttribute(n, "vers:OriginalVEOType");
         if (attr == null) {
-            startMissingAttrError();
-            Error("A <vers:ModifiedVEO> (M156) element must contain a vers:OriginalVEOType attribute");
+            startMissingAttrError("testModifiedVEO", 1);
+            continueError("A <vers:ModifiedVEO> (M156) element must contain a vers:OriginalVEOType attribute");
             confirmError();
             originalVEOType = "Unknown";
             passed = false;
@@ -1019,10 +961,9 @@ public class TestValues extends TestSupport {
         }
 
         // check for valid values of vers:OriginalVEOType attribute
-        if (!equals(originalVEOType, "File")
-                && !equals(originalVEOType, "Record")) {
-            startAttrError(n, 156, attr, true);
-            Error("The value of the vers:OriginalVEOType attribute within a <vers:ModifiedVEO> (M156) element must be either 'File' or 'Record'");
+        if (!equals(originalVEOType, "File") && !equals(originalVEOType, "Record")) {
+            startAttrError("testModifiedVEO", 2, n, 156, attr, true);
+            continueError("The value of the vers:OriginalVEOType attribute within a <vers:ModifiedVEO> (M156) element must be either 'File' or 'Record'");
             confirmError();
             passed = false;
         }
@@ -1030,8 +971,8 @@ public class TestValues extends TestSupport {
         // second and later vers:ModifiedVEO elements must have the same
         // value as the first
         if (s != null && !equals(originalVEOType, s)) {
-            startAttrError(n, 156, attr, true);
-            Error("An inner <vers:ModifiedVEO> (M156) element has a vers:OriginalVEOType attribute with the value (" + s + ") that does not match the type of the outermost <vers:ModifiedVEO> (M156) element (which was '" + originalVEOType + "')");
+            startAttrError("testModifiedVEO", 3, n, 156, attr, true);
+            continueError("An inner <vers:ModifiedVEO> (M156) element has a vers:OriginalVEOType attribute with the value (" + s + ") that does not match the type of the outermost <vers:ModifiedVEO> (M156) element (which was '" + originalVEOType + "')");
             confirmError();
             passed = false;
         }
@@ -1039,7 +980,7 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:RevisedVEO (100)
+     * Test a vers:RevisedVEO (100)
      */
     private boolean testRevisedVEO(Node n) {
         boolean passed = true;
@@ -1047,8 +988,8 @@ public class TestValues extends TestSupport {
         inRevisedVEO = true;
         inOriginalVEO = false;
         if (findAttribute(n, "vers:id") == null) {
-            startMissingAttrError();
-            Error("A <vers:RevisedVEO> (M158) element must contain a vers:id attribute");
+            startMissingAttrError("testRevisedVEO", 1);
+            continueError("A <vers:RevisedVEO> (M158) element must contain a vers:id attribute");
             confirmError();
             passed = false;
         }
@@ -1056,7 +997,7 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:OriginalVEO (110)
+     * Test a vers:OriginalVEO (110)
      */
     private boolean testOriginalVEO(Node n) {
         boolean passed = true;
@@ -1072,8 +1013,8 @@ public class TestValues extends TestSupport {
         // set version for this layer
         n1 = findElement((Element) n, "vers:Version");
         if (n1 == null) {
-            startV2MissingError();
-            Error("A <vers:OriginalVEO> (M159) element must contain a <vers:Version> (M3) element");
+            startV2MissingError("testOriginalVEO", 1);
+            continueError("A <vers:OriginalVEO> (M159) element must contain a <vers:Version> (M3) element");
             confirmError();
             thisLayerVersion = "Unknown";
             passed = false;
@@ -1084,14 +1025,13 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:RecordMetadata (120)
+     * Test a vers:RecordMetadata (120)
      */
     private boolean testRecordMetadata(Node n) {
         boolean passed = true;
-        if (thisLayerVersion.equals("1.2")
-                && !testElementExists(n, "naa:RecordIdentifier")) {
-            startV1MissingError();
-            Error("In a version 1 VEO, a <vers:RecordMetadata> (M11) element must contain a <naa:RecordIdentifier> (M65) element");
+        if (thisLayerVersion.equals("1.2") && !testElementExists(n, "naa:RecordIdentifier")) {
+            startV1MissingError("testRecordMetadata", 1);
+            continueError("In a version 1 VEO, a <vers:RecordMetadata> (M11) element must contain a <naa:RecordIdentifier> (M65) element");
             confirmError();
             passed = false;
         }
@@ -1099,7 +1039,7 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:SecurityClassification (130) 20191209 - Added the
+     * Test a vers:SecurityClassification (130) 20191209 - Added the
      * classifications Unofficial to Personal Privacy 20200205 - Forced a
      * relaxed test of equality a/c transfer request 20220408 - Added 'Not
      * Reviewed' a/c transfer request and further relaxed value comparison
@@ -1110,8 +1050,8 @@ public class TestValues extends TestSupport {
 
         // test for controlled values
         if (!vpa) {
-            startValueError(n, 25, true);
-            Error("which must be: ");
+            startValueError("testSecurityClassification", 1, n, 25, true);
+            continueError("which must be: ");
             if (!checkValueRelaxed(n, "Unclassified", ", ")
                     && !checkValueRelaxed(n, "Not Reviewed", ", ")
                     && !checkValueRelaxed(n, "In-Confidence", ", ")
@@ -1136,14 +1076,14 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a naa:AccessStatus (140)
+     * Test a naa:AccessStatus (140)
      */
     private boolean testAccessStatus(Node n) {
         boolean passed = true;
 
         // test for controlled values
-        startValueError(n, 29, true);
-        Error("Value must be one of: ");
+        startValueError("testAccessStatus", 1, n, 29, true);
+        continueError("Value must be one of: ");
         if (!checkValue(n, "Not for Release", ", ")
                 && !checkValue(n, "May be Published", ", ")
                 && !checkValue(n, "May be Released under FOI", ", ")
@@ -1156,14 +1096,14 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a naa:SchemeType (150)
+     * Test a naa:SchemeType (150)
      */
     private boolean testSchemeType(Node n) {
         boolean passed = true;
 
         // test for controlled values
-        startValueError(n, 33, true);
-        Error("Value must be one of: ");
+        startValueError("testSchemeType", 1, n, 33, true);
+        continueError("Value must be one of: ");
         if (!checkValue(n, "Functional", ", ")
                 && !checkValue(n, "Subject-based", " or ")
                 && !checkValue(n, "Free Text", " ")) {
@@ -1174,15 +1114,15 @@ public class TestValues extends TestSupport {
         // Check that VEO has appropriate titling mechanism
         if (equals(getValue(n), "Subject-based")
                 && !testElementExists(n.getParentNode().getParentNode(), "vers:Subject")) {
-            startValueError(n, 33, false);
-            Error("has the value 'Subject-based', but VEO does not contain a <vers:Subject> (M37) element");
+            startValueError("testSchemeType", 2, n, 33, false);
+            continueError("has the value 'Subject-based', but VEO does not contain a <vers:Subject> (M37) element");
             confirmError();
             passed = false;
         }
-        if (equals(getValue(n), "Funtional")
+        if (equals(getValue(n), "Functional")
                 && !testElementExists(n.getParentNode().getParentNode(), "vers:Function")) {
-            startValueError(n, 33, false);
-            Error("has the value 'Functional', but VEO does not contain a <vers:Function> (M50) element");
+            startValueError("testSchemeType", 3, n, 33, false);
+            continueError("has the value 'Functional', but VEO does not contain a <vers:Function> (M50) element");
             confirmError();
             passed = false;
         }
@@ -1190,30 +1130,32 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:Subject (160)
+     * Test a vers:Subject (160)
      */
     private boolean testSubject(Node n) {
         boolean passed = true;
 
+        /* this test will never fail as a missing keyword is a parse error
         if (!testElementExists(n, "vers:Keyword")) {
-            startElementError(n, 37);
-            Error("A <vers:Subject> (M37) element must contain at least one <vers:Keyword> (M39) element");
+            startElementError("testSubject", 1, n, 37);
+            continueError("A <vers:Subject> (M37) element must contain at least one <vers:Keyword> (M39) element");
             confirmError();
             passed = false;
         }
+         */
         return passed;
     }
 
     /**
-     * TestSupport a vers:AuxiliaryDescription (170)
+     * Test a vers:AuxiliaryDescription (170)
      */
     private boolean testAuxiliaryDescription(Node n) {
         boolean passed = true;
 
         // error if present in a version 1 VEO
         if (thisLayerVersion.equals("1.2")) {
-            startV2inV1Error();
-            Error("A version 1 VEO cannot contain a <vers:AuxiliaryDescription> (M153) element");
+            startV2inV1Error("testAuxiliaryDescription", 1);
+            continueError("A version 1 VEO cannot contain a <vers:AuxiliaryDescription> (M153) element");
             confirmError();
             passed = false;
         }
@@ -1221,15 +1163,14 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a naa:RelatedItemId (180)
+     * Test a naa:RelatedItemId (180)
      */
     private boolean testRelatedItemId(Node n) {
         boolean passed = true;
 
-        if (thisLayerVersion.equals("2.0")
-                && !testElementExists(n, "vers:VEOIdentifier")) {
-            startV2MissingError();
-            Error("In version 2.0, a <vers:RelatedItemId> (M43) element must contain a <vers:VEOIdentifier> (M99) element");
+        if (thisLayerVersion.equals("2.0") && !testElementExists(n, "vers:VEOIdentifier")) {
+            startV2MissingError("testRelatedItemId", 1);
+            continueError("In version 2.0, a <vers:RelatedItemId> (M43) element must contain a <vers:VEOIdentifier> (M99) element");
             confirmError();
             passed = false;
         }
@@ -1237,7 +1178,7 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:Date (185)
+     * Test a vers:Date (185)
      *
      * ajw 9/8/06. Method added to ensure that vers:DateTimeClosed is present in
      * a file VEO.
@@ -1246,8 +1187,8 @@ public class TestValues extends TestSupport {
         boolean passed = true;
 
         if (!testElementExists(n, "vers:DateTimeClosed")) {
-            startV2MissingError();
-            Error("In a File VEO, a <vers:Date> (M54) element must contain a <vers:DateTimeClosed> (M144) element when submitted to PROV");
+            startV2MissingError("testVERSDate", 1);
+            continueError("In a File VEO, a <vers:Date> (M54) element must contain a <vers:DateTimeClosed> (M144) element when submitted to PROV");
             confirmError();
             passed = false;
         }
@@ -1255,37 +1196,36 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a naa:AggregationLevel (190)
+     * Test a naa:AggregationLevel (190)
      */
     private boolean testAggregationLevel(Node n) {
         boolean passed = true;
 
         // test for controlled values
-        startValueError(n, 59, true);
-        Error("Value must be one of: ");
+        startValueError("testAggregationLevel", 1, n, 59, true);
+        continueError("Value must be one of: ");
         if (!checkValue(n, "File", " or ") && !checkValue(n, "Item", " ")) {
             confirmError();
             passed = false;
-        }
-        if (equals(thisLayerType, "File")
-                && !equals(getValue(n), "File")) {
-            startValueError(n, 59, true);
-            Error("The value of the <naa:AggregationLevel> (M159) element (which is " + getValue(n) + ") must be 'File' to match the content of the enclosing <vers:ObjectType> (M6) element");
-            confirmError();
-            passed = false;
-        }
-        if (equals(thisLayerType, "Record")
-                && !equals(getValue(n), "Item")) {
-            startValueError(n, 59, true);
-            Error("The value of the <naa:AggregationLevel> (M159) element (which is " + getValue(n) + ") must be 'Item' as the value of the <vers:ObjectType> (M6) element is 'Record'");
-            confirmError();
-            passed = false;
+        } else {
+            if (equals(thisLayerType, "File") && !equals(getValue(n), "File")) {
+                startValueError("testAggregationLevel", 2, n, 59, true);
+                continueError("The value of the <naa:AggregationLevel> (M159) element (which is " + getValue(n) + ") must be 'File' to match the content of the enclosing <vers:ObjectType> (M6) element");
+                confirmError();
+                passed = false;
+            }
+            if (equals(thisLayerType, "Record") && !equals(getValue(n), "Item")) {
+                startValueError("testAggregationLevel", 3, n, 59, true);
+                continueError("The value of the <naa:AggregationLevel> (M159) element (which is " + getValue(n) + ") must be 'Item' as the value of the <vers:ObjectType> (M6) element is 'Record'");
+                confirmError();
+                passed = false;
+            }
         }
         return passed;
     }
 
     /**
-     * TestSupport a naa:UseType (200)
+     * Test a naa:UseType (200)
      */
     private boolean testUseType(Node n) {
         boolean passed = true;
@@ -1294,8 +1234,8 @@ public class TestValues extends TestSupport {
         if (!strict) {
             return true;
         }
-        startValueError(n, 74, true);
-        Error("Value must be one of: ");
+        startValueError("testUseType", 1, n, 74, true);
+        continueError("Value must be one of: ");
         if (!checkValue(n, "Listed", ", ")
                 && !checkValue(n, "Metadata Accessed", ", ")
                 && !checkValue(n, "Content Accessed", ", ")
@@ -1313,14 +1253,14 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a naa:DisposalStatus (210)
+     * Test a naa:DisposalStatus (210)
      */
     private boolean testDisposalStatus(Node n) {
         boolean passed = true;
 
         // test for controlled values
-        startValueError(n, 92, true);
-        Error("Value must be one of: ");
+        startValueError("testDisposalStatus", 1, n, 92, true);
+        continueError("Value must be one of: ");
         if (!checkValue(n, "Permanent", ", ")
                 && !checkValue(n, "Temporary", " or ")
                 && !checkValue(n, "Unknown", " ")) {
@@ -1331,14 +1271,14 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a naa:RefersTo (220)
+     * Test a naa:RefersTo (220)
      */
     private boolean testRefersTo(Node n) {
         boolean passed = true;
 
         // test for controlled values
-        startValueError(n, 95, true);
-        Error("Value must be one of: ");
+        startValueError("testRefersTo", 1, n, 95, true);
+        continueError("Value must be one of: ");
         if (!checkValue(n, "Creation", ", ")
                 && !checkValue(n, "Retention", ", ")
                 && !checkValue(n, "Access/Usage", ", ")
@@ -1351,7 +1291,7 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:VEOIdentifier (230)
+     * Test a vers:VEOIdentifier (230)
      *
      * ajw 9/8/06 doesn't test for vers:AgencyIdentifier and
      * vers:SeriesIdentifier if in a naa:RelatedItemId. Required adding context
@@ -1361,15 +1301,15 @@ public class TestValues extends TestSupport {
         boolean passed = true;
         if (!parent.getNodeName().equals("naa:RelatedItemId")
                 && !testElementExists(n, "vers:AgencyIdentifier")) {
-            startMissingError();
-            Error("A <vers:VEOIdentifier> (M99) element must contain a <vers:AgencyIdentifier> (M100) element when submitted to PROV");
+            startMissingError("testVEOIdentifier", 1);
+            continueError("A <vers:VEOIdentifier> (M99) element must contain a <vers:AgencyIdentifier> (M100) element when submitted to PROV");
             confirmError();
             passed = false;
         }
         if (!parent.getNodeName().equals("naa:RelatedItemId")
                 && !testElementExists(n, "vers:SeriesIdentifier")) {
-            startMissingError();
-            Error("A <vers:VEOIdentifier> (M99) element must contain a <vers:SeriesIdentifier> (M101) element when submitted to PROV");
+            startMissingError("testVEOIdentifier", 2);
+            continueError("A <vers:VEOIdentifier> (M99) element must contain a <vers:SeriesIdentifier> (M101) element when submitted to PROV");
             confirmError();
             passed = false;
         }
@@ -1377,7 +1317,7 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:AgencyIdentifier (240)
+     * Test a vers:AgencyIdentifier (240)
      */
     private boolean testAgencyIdentifier(Node n) {
         boolean passed = true;
@@ -1387,8 +1327,8 @@ public class TestValues extends TestSupport {
         try {
             Integer.parseInt(s);
         } catch (NumberFormatException nfe) {
-            startValueError(n, 100, true);
-            Error("Value must be the VA number (without leading 'VA')");
+            startValueError("testAgencyIdentifier", 1, n, 100, true);
+            continueError("Value must be the VA number (without leading 'VA')");
             confirmError();
             passed = false;
         }
@@ -1396,7 +1336,7 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:SeriesIdentifier (250)
+     * Test a vers:SeriesIdentifier (250)
      */
     private boolean testSeriesIdentifier(Node n) {
         boolean passed = true;
@@ -1406,8 +1346,8 @@ public class TestValues extends TestSupport {
         try {
             Integer.parseInt(s);
         } catch (NumberFormatException nfe) {
-            startValueError(n, 101, true);
-            Error("Value must be the VPRS number (without leading 'VPRS')");
+            startValueError("testSeriesIdentifier", 1, n, 101, true);
+            continueError("Value must be the VPRS number (without leading 'VPRS')");
             confirmError();
             passed = false;
         }
@@ -1415,14 +1355,14 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:OriginatorsCopy (260)
+     * Test a vers:OriginatorsCopy (260)
      */
     private boolean testOriginatorsCopy(Node n) {
         boolean passed = true;
 
         // test for controlled values
-        startValueError(n, 109, true);
-        Error("Value must be one of: ");
+        startValueError("testOriginatorsCopy", 1, n, 109, true);
+        continueError("Value must be one of: ");
         if (!checkValue(n, "true", " or ")
                 && !checkValue(n, "false", " ")) {
             confirmError();
@@ -1443,7 +1383,7 @@ public class TestValues extends TestSupport {
         String s, ids[];
         Node attr, n1;
         boolean foundSubDocAttr;
-        int i, j;
+        int i;
         NodeList nl;
         boolean foundLtpf;
         StringBuffer fmtsFound;
@@ -1458,15 +1398,17 @@ public class TestValues extends TestSupport {
                 n1 = (Element) nl.item(i);
                 s = getValue(n1).trim().toLowerCase();
                 fmtsFound.append(s);
-                foundLtpf = ltsfs.isV2LTSF(s);
+                if (ltsfs.isV2LTSF(s)) {
+                    foundLtpf = true;
+                }
             }
             if (!foundLtpf) {
-                startError(10, "Document without Long Term Preservation Format");
-                Error("A <Document> (M114) element must contain an <Encoding> (M126) element with a valid long term preservation format for acceptance into the digital archive. ");
+                startError("testDocument", 1, "Document without Long Term Preservation Format");
+                continueError("A <Document> (M114) element must contain an <Encoding> (M126) element with a valid long term preservation format for acceptance into the digital archive. ");
                 if (nl.getLength() == 0) {
-                    Error("The Document has no <vers:RenderingKeywords> (M132) elements and so no long term preservation formats can be identified");
+                    continueError("The Document has no <vers:RenderingKeywords> (M132) elements and so no long term preservation formats can be identified");
                 } else {
-                    Error("Formats found in this Document are: " + fmtsFound.toString());
+                    continueError("Formats found in this Document are: " + fmtsFound.toString());
                 }
                 confirmError();
                 passed = false;
@@ -1476,38 +1418,38 @@ public class TestValues extends TestSupport {
         // test for attributes in V1 VEOs
         if (thisLayerVersion.equals("1.2")) {
             if (findAttribute(n, "vers:id") != null) {
-                startV2inV1Error();
-                Error("In a version 1 VEO, a <vers:Document> (M114) element cannot contain a vers:id attribute");
+                startV2inV1Error("testDocument", 2);
+                continueError("In a version 1 VEO, a <vers:Document> (M114) element cannot contain a vers:id attribute");
                 confirmError();
                 passed = false;
             }
             if (findAttribute(n, "vers:subordinateDocuments") != null) {
-                startV2inV1Error();
-                Error("In a version 1 VEO, a <vers:Document> (M114) element cannot contain a vers:subordinateDocuments attribute");
+                startV2inV1Error("testDocument", 3);
+                continueError("In a version 1 VEO, a <vers:Document> (M114) element cannot contain a vers:subordinateDocuments attribute");
                 confirmError();
                 passed = false;
             }
             if (findAttribute(n, "vers:subordinateDocumentRelationship") != null) {
-                startV2inV1Error();
-                Error("In a version 1 VEO, a <vers:Document> (M114) element cannot contain a vers:subordinateDocumentRelationship attribute");
+                startV2inV1Error("testDocument", 4);
+                continueError("In a version 1 VEO, a <vers:Document> (M114) element cannot contain a vers:subordinateDocumentRelationship attribute");
                 confirmError();
                 passed = false;
             }
             if (findAttribute(n, "vers:parentDocument") != null) {
-                startV2inV1Error();
-                Error("In a version 1 VEO, a <vers:Document> (M114) element cannot contain a vers:parentDocument attribute");
+                startV2inV1Error("testDocument", 5);
+                continueError("In a version 1 VEO, a <vers:Document> (M114) element cannot contain a vers:parentDocument attribute");
                 confirmError();
                 passed = false;
             }
             if (findAttribute(n, "vers:presentThisDocument") != null) {
-                startV2inV1Error();
-                Error("In a version 1 VEO, a <vers:Document> (M114) element cannot contain a vers:presentThisDocument attribute");
+                startV2inV1Error("testDocument", 6);
+                continueError("In a version 1 VEO, a <vers:Document> (M114) element cannot contain a vers:presentThisDocument attribute");
                 confirmError();
                 passed = false;
             }
             if (!testElementExists(n, "vers:Encoding")) {
-                startV1MissingError();
-                Error("In a version 1 VEO, a <vers:Document> (M114) element must contain at least one <vers:Encoding> element");
+                startV1MissingError("testDocument", 7);
+                continueError("In a version 1 VEO, a <vers:Document> (M114) element must contain at least one <vers:Encoding> element");
                 confirmError();
                 passed = false;
             }
@@ -1516,7 +1458,7 @@ public class TestValues extends TestSupport {
 
         // the following tests are performed for version 2
         // check version id attribute
-        if (!checkVersId(n, 114)) {
+        if (!checkVersId("testDocument", 20, n, 114)) {
             passed = false;
         }
 
@@ -1531,14 +1473,14 @@ public class TestValues extends TestSupport {
                 if (n1 == null
                         || n1.getNodeType() != Node.ELEMENT_NODE
                         || !n1.getNodeName().equals("vers:Document")) {
-                    startAttrError(n, 114, attr, true);
-                    Error("The vers:subordinateDocuments attribute (value '" + ids[i] + "') does not point to a <vers:Document> (M114) element");
+                    startAttrError("testDocument", 8, n, 114, attr, true);
+                    continueError("The vers:subordinateDocuments attribute (value '" + ids[i] + "') does not point to a <vers:Document> (M114) element");
                     confirmError();
                     passed = false;
                 }
                 if (n == n1) {
-                    startAttrError(n, 114, attr, true);
-                    Error("The vers:subordinateDocuments attribute (value '" + ids[i] + "') points to this <vers:Document> (M114) element");
+                    startAttrError("testDocument", 9, n, 114, attr, true);
+                    continueError("The vers:subordinateDocuments attribute (value '" + ids[i] + "') points to this <vers:Document> (M114) element");
                     confirmError();
                     passed = false;
                 }
@@ -1552,8 +1494,8 @@ public class TestValues extends TestSupport {
             if (!s.equals("Sequence")
                     && !s.equals("Set")
                     && !s.equals("Alternative")) {
-                startAttrError(n, 114, attr, true);
-                Error("The vers:subordinateDocumentRelationship attribute must have the value 'Sequence', 'Set' or 'Alternative'");
+                startAttrError("testDocument", 10, n, 114, attr, true);
+                continueError("The vers:subordinateDocumentRelationship attribute must have the value 'Sequence', 'Set' or 'Alternative'");
                 confirmError();
                 passed = false;
             }
@@ -1563,18 +1505,17 @@ public class TestValues extends TestSupport {
         attr = findAttribute(n, "vers:presentThisDocument");
         if (attr != null) {
             s = attr.getNodeValue();
-            if (!s.equals("true")
-                    && !s.equals("false")) {
-                startAttrError(n, 114, attr, true);
-                Error("The vers:presentThisDocument attribute must have the value 'true', or 'false'");
+            if (!s.equals("true") && !s.equals("false")) {
+                startAttrError("testDocument", 11, n, 114, attr, true);
+                continueError("The vers:presentThisDocument attribute must have the value 'true', or 'false'");
                 confirmError();
                 passed = false;
             }
         }
 
         if (!foundSubDocAttr && !testElementExists(n, "vers:Encoding")) {
-            startV2MissingError();
-            Error("A version 2 <vers:Document> (M114) element must either contain <vers:Encoding> (M126) elements or a vers:subordinateDocuments attribute");
+            startV2MissingError("testDocument", 12);
+            continueError("A version 2 <vers:Document> (M114) element must either contain <vers:Encoding> (M126) elements or a vers:subordinateDocuments attribute");
             passed = false;
         }
 
@@ -1589,8 +1530,8 @@ public class TestValues extends TestSupport {
 
         // error if version 1 and document function present
         if (thisLayerVersion.equals("1.2")) {
-            startV2inV1Error();
-            Error("A version 1 VEO cannot contain a <vers:DocumentRightsManagement> (M154) element ");
+            startV2inV1Error("testDocumentRightsManagement", 1);
+            continueError("A version 1 VEO cannot contain a <vers:DocumentRightsManagement> (M154) element ");
             confirmError();
             passed = false;
         }
@@ -1605,8 +1546,8 @@ public class TestValues extends TestSupport {
 
         // error if version 1 and document function present
         if (thisLayerVersion.equals("1.2")) {
-            startV2inV1Error();
-            Error("A version 1 VEO cannot contain a <vers:DocumentFunction> (M155) element");
+            startV2inV1Error("testDocumentFunction", 1);
+            continueError("A version 1 VEO cannot contain a <vers:DocumentFunction> (M155) element");
             confirmError();
             passed = false;
         }
@@ -1619,28 +1560,27 @@ public class TestValues extends TestSupport {
     private boolean testEncoding(Node n) {
         boolean passed = true;
 
-        if (thisLayerVersion.equals("1.2")
-                && findAttribute(n, "vers:id") != null) {
-            startV2inV1Error();
-            Error("A version 1 <vers:Encoding> (M126) element cannot contain a vers:id attribute");
+        if (thisLayerVersion.equals("1.2") && findAttribute(n, "vers:id") != null) {
+            startV2inV1Error("testEncoding", 1);
+            continueError("A version 1 <vers:Encoding> (M126) element cannot contain a vers:id attribute");
             confirmError();
             passed = false;
         }
-        if (thisLayerVersion.equals("2.0") && !checkVersId(n, 126)) {
+        if (thisLayerVersion.equals("2.0") && !checkVersId("testEncoding", 20, n, 126)) {
             passed = false;
         }
         return passed;
     }
 
     /**
-     * TestSupport a vers:EncodingMetadata (300)
+     * Test a vers:EncodingMetadata (300)
      */
     private boolean testEncodingMetadata(Node n) {
         boolean passed = true;
 
         /* Test removed a/c request by Dave Fowler as it would clutter up the error logs
         if (!testElementExists(n, "vers:SourceFileIdentifier")) {
-            startMissingError();
+            startMissingError("testEncodingMetadata", 1);
             Error("A <vers:sourceFileIdentifier> (M129) element is expected by the ingest process to be present in each <vers:Encoding> (M126) element. The ingest process will use the value of the <vers:DocumentSource> (M125) if <vers:sourceFileIdentifier> is not present");
             confirmError();
             passed = false;
@@ -1650,17 +1590,19 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:FileRendering (310)
+     * Test a vers:FileRendering (310)
      */
     private boolean testFileRendering(Node n) {
         boolean passed = true;
 
+        /* will never be true, as this will result in a parse error
         if (!testElementExists(n, "vers:RenderingKeywords")) {
-            startMissingError();
-            Error("A <vers:RenderingKeywords> (M132) element must be present in each <vers:Encoding> (M126) element to allow automated extraction");
+            startMissingError("testFileRendering", 1);
+            continueError("A <vers:RenderingKeywords> (M132) element must be present in each <vers:Encoding> (M126) element to allow automated extraction");
             confirmError();
             passed = false;
         }
+        */
         return passed;
     }
 
@@ -1673,10 +1615,8 @@ public class TestValues extends TestSupport {
     private boolean testRenderingKeywords(Node n) {
         String s;
         boolean passed = true;
-        String fmt[];
-        int i;
 
-        startValueError(n, 132, true);
+        startValueError("testRenderingKeywords", 1, n, 132, true);
         s = getValue(n).trim();
         if (s == null || s.length() == 0) { //empty elements picked up elsewhere
             return false;
@@ -1684,26 +1624,27 @@ public class TestValues extends TestSupport {
 
         if (s.charAt(0) != '\'') {
             if (strict) {
-                Error("Value must start with quote (')");
+                continueError("Value must start with quote (')");
                 passed = false;
             }
         } else {
             s = s.substring(1, s.length());
         }
         if (s == null || s.length() == 0) {
-            Error("    Value is empty");
-            passed = false;
+            continueError(" (empty)");
+            confirmError();
+            return false;
         }
         if (s.charAt(s.length() - 1) != '\'') {
             if (strict) {
-                Error("Value must end with quote (')");
+                continueError("Value must end with quote (')");
                 passed = false;
             }
         } else {
             s = s.substring(0, s.length() - 1);
         }
         if (s == null || s.length() == 0) {
-            Error("Value is empty");
+            continueError(" (empty)");
             passed = false;
         }
         if (!passed) {
@@ -1713,7 +1654,7 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a vers:DocumentData (330)
+     * Test vers:DocumentData (330)
      */
     private boolean testDocumentData(Node n) {
         boolean passed = true;
@@ -1721,32 +1662,32 @@ public class TestValues extends TestSupport {
         // test for attributes in V1
         if (thisLayerVersion.equals("1.2")) {
             if (findAttribute(n, "vers:id") != null) {
-                startV2inV1Error();
-                Error("In a version 1 VEO, a <vers:DocumentData> (M133) element cannot contain a vers:id attribute");
+                startV2inV1Error("testDocumentData", 1);
+                continueError("In a version 1 VEO, a <vers:DocumentData> (M133) element cannot contain a vers:id attribute");
                 confirmError();
                 passed = false;
             }
             if (findAttribute(n, "vers:forContentsSeeElement") != null) {
-                startV2inV1Error();
-                Error("In a version 1 VEO, a <vers:DocumentData> (M133) element cannot contain a vers:forContentsSeeElement attribute");
+                startV2inV1Error("testDocumentData", 2);
+                continueError("In a version 1 VEO, a <vers:DocumentData> (M133) element cannot contain a vers:forContentsSeeElement attribute");
                 confirmError();
                 passed = false;
             }
             if (findAttribute(n, "vers:forContentSeeElement") != null) {
-                startV2inV1Error();
-                Error("In a version 1 VEO, a <vers:DocumentData> (M133) element cannot contain a vers:forContentSeeElement attribute");
+                startV2inV1Error("testDocumentData", 3);
+                continueError("In a version 1 VEO, a <vers:DocumentData> (M133) element cannot contain a vers:forContentSeeElement attribute");
                 confirmError();
                 passed = false;
             }
             if (findAttribute(n, "vers:forContentsSeeOriginalDocumentAndEncoding") != null) {
-                startV2inV1Error();
-                Error("In a version 1 VEO, a <vers:DocumentData> (M133) element cannot contain a vers:forContentsSeeOriginalDocumentAndEncoding attribute");
+                startV2inV1Error("testDocumentData", 4);
+                continueError("In a version 1 VEO, a <vers:DocumentData> (M133) element cannot contain a vers:forContentsSeeOriginalDocumentAndEncoding attribute");
                 confirmError();
                 passed = false;
             }
             if (findAttribute(n, "vers:forContentSeeOriginalDocumentAndEncoding") != null) {
-                startV2inV1Error();
-                Error("In a version 1 VEO, a <vers:DocumentData> (M133) element cannot contain a vers:forContentSeeOriginalDocumentAndEncoding attribute");
+                startV2inV1Error("testDocumentData", 5);
+                continueError("In a version 1 VEO, a <vers:DocumentData> (M133) element cannot contain a vers:forContentSeeOriginalDocumentAndEncoding attribute");
                 confirmError();
                 passed = false;
             }
@@ -1754,7 +1695,7 @@ public class TestValues extends TestSupport {
         }
 
         // check for valid version id...
-        if (!checkVersId(n, 133)) {
+        if (!checkVersId("testDocumentData", 20, n, 133)) {
             passed = false;
         }
 
@@ -1768,12 +1709,11 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport a link from one vers:DocumentData to another
+     * Test a link from one vers:DocumentData to another
      */
     private boolean checkLink(Node n, String name) {
         Node attr, n1;
         boolean passed = true;
-        boolean v1link = false;
         String id;
 
         // get attribute value
@@ -1783,17 +1723,15 @@ public class TestValues extends TestSupport {
             // if link is to a version 1 VEO prepend 'v1-'
             if (name.equals("vers:forContentSeeOriginalDocumentAndEncoding")
                     || name.equals("vers:forContentsSeeOriginalDocumentAndEncoding")) {
-                v1link = true;
                 id = "v1-" + attr.getNodeValue();
             } else {
-                v1link = false;
                 id = attr.getNodeValue();
             }
 
             // document data must not contain a link and document data
             if (n.getFirstChild() != null) {
-                startElementError(n, 133);
-                Error("A <vers:DocumentData> (M133) element cannot contain both content and a link (" + name + ") to another <vers:DocumentData> (M133) element");
+                startElementError("checkLink", 1, n, 133);
+                continueError("A <vers:DocumentData> (M133) element cannot contain both content and a link (" + name + ") to another <vers:DocumentData> (M133) element");
                 confirmError();
                 passed = false;
             }
@@ -1801,25 +1739,24 @@ public class TestValues extends TestSupport {
             // find the linked element
             n1 = (Node) nodeLabels.get(id);
             if (n1 == null) {
-                startAttrError(n, 133, attr, true);
-                Error("Attribute does not reference another element");
+                startAttrError("checkLink", 2, n, 133, attr, true);
+                continueError("Attribute does not reference another element");
                 confirmError();
                 return false;
             }
 
             // linked element must by a vers:DocumentData
-            if (n1.getNodeType() != Node.ELEMENT_NODE
-                    || !n1.getNodeName().equals("vers:DocumentData")) {
-                startAttrError(n, 133, attr, true);
-                Error("Attribute does not reference another <vers:DocumentData> (M133) element");
+            if (n1.getNodeType() != Node.ELEMENT_NODE || !n1.getNodeName().equals("vers:DocumentData")) {
+                startAttrError("checkLink", 3, n, 133, attr, true);
+                continueError("Attribute does not reference another <vers:DocumentData> (M133) element");
                 confirmError();
                 passed = false;
             }
 
             // linked document data element must contain actual data
             if (n1.getFirstChild() == null) {
-                startAttrError(n, 133, attr, true);
-                Error("Attribute references a <vers:DocumentData> (M133) without content");
+                startAttrError("checkLink", 4, n, 133, attr, true);
+                continueError("Attribute references a <vers:DocumentData> (M133) without content");
                 confirmError();
                 passed = false;
             }
@@ -1835,7 +1772,7 @@ public class TestValues extends TestSupport {
     private boolean checkValue(Node n, String value, String separator) {
         String s1;
 
-        Error("'" + value + "'" + separator);
+        continueError("'" + value + "'" + separator);
         if (strict) {
             s1 = getValue(n).trim();
         } else {
@@ -1851,7 +1788,7 @@ public class TestValues extends TestSupport {
      * in the error message
      */
     private boolean checkValueRelaxed(Node n, String value, String separator) {
-        Error("'" + value + "'" + separator);
+        continueError("'" + value + "'" + separator);
         return realValue(getValue(n)).equals(realValue(value));
     }
 
@@ -1924,7 +1861,7 @@ public class TestValues extends TestSupport {
      * @param validvalues	an array of valid values for this attribute
      * @result false if the test failed (i.e. error raised)
      */
-    private boolean testAttribute(Node n, int id, String name, String[] validvalues) {
+    private boolean testAttribute(String method, int errid, Node n, int id, String name, String[] validvalues) {
         Node a;
         int i;
         String s1, s2;
@@ -1932,15 +1869,15 @@ public class TestValues extends TestSupport {
         // try to find attribute in node
         a = findAttribute(n, name);
         if (a == null) {
-            startElementError(n, id);
-            Error("   Element must contain a " + name + " attribute");
+            startElementError(method, errid, n, id);
+            continueError("   Element must contain a " + name + " attribute");
             confirmError();
             return false;
         }
 
         // try to find attribute value in list of valid values
-        startAttrError(n, id, a, true);
-        Error("    which must be: ");
+        startAttrError(method, errid, n, id, a, true);
+        continueError(" which must be: ");
         for (i = 0; i < validvalues.length; i++) {
             if (strict) {
                 s1 = a.getNodeValue().trim();
@@ -1952,9 +1889,9 @@ public class TestValues extends TestSupport {
             if (s1.equals(s2)) {
                 return true;
             }
-            Error("'" + validvalues[i] + "' ");
+            continueError("'" + validvalues[i] + "' ");
             if (i == validvalues.length - 2) {
-                Error("or ");
+                continueError("or ");
             }
         }
         confirmError();
@@ -1967,13 +1904,14 @@ public class TestValues extends TestSupport {
      * If v1.2, vers:id attribute must not be present if v2, vers:id attribute
      * must be present and must match standard pattern
      *
+     * @param test - test method being called
+     * @param id - base id
      * @param n the element in which the id must be found
      * @param mno the VERS specification number for the element (M number)
      */
-    private boolean checkVersId(Node n, int mno) {
-        String element, id;
+    private boolean checkVersId(String test, int id, Node n, int mno) {
+        String element, idVal;
         Node attr;
-        int i;
         String s[];
 
         element = n.getNodeName();
@@ -1982,36 +1920,33 @@ public class TestValues extends TestSupport {
         attr = findAttribute(n, "vers:id");
 
         // error if version 1 and vers:id attribute present
-        if (thisLayerVersion.equals("1.2") && attr != null) {
-            startV2inV1Error();
-            Error("<" + element + "> cannot contain a vers:id attribute in a version 1 VEO");
-            confirmError();
-            return false;
-        }
-
-        // finished test if version 1...
         if (thisLayerVersion.equals("1.2")) {
-            return true;
+            if (attr != null) {
+                startV2inV1Error(test, id);
+                continueError("<" + element + "> can only contain a vers:id attribute in a version 2.0 VEO");
+                confirmError();
+                return false;
+            }
         }
 
         // error if version 2 and vers:id attribute not present
-        if (thisLayerVersion.equals("2.0") && attr == null) {
-            startMissingAttrError();
-            Error("<" + element + "> must contain a vers:id attribute in a version 2 VEO");
+        if (attr == null) {
+            startMissingAttrError(test, id+1);
+            continueError("<" + element + "> must contain a vers:id attribute in a version 2 VEO");
             confirmError();
             return false;
         }
 
         // check vers:id for conformance to pattern
-        id = attr.getNodeValue();
-        startAttrError(n, mno, attr, true);
-        Error("The value ");
-        s = id.split("-");
+        idVal = attr.getNodeValue();
+        startAttrError(test, id+2, n, mno, attr, true);
+        continueError("The value ");
+        s = idVal.split("-");
         if (element.equals("vers:RevisedVEO")) {
             if (s.length != 2
                     || !equals(s[0], "Revision")
                     || !testVersIdNumber(s[1])) {
-                Error("must match 'Revision-<int>'");
+                continueError("must match 'Revision-<int>'");
                 confirmError();
                 return false;
             }
@@ -2022,7 +1957,7 @@ public class TestValues extends TestSupport {
                     || !testVersIdNumber(s[1])
                     || !equals(s[2], "Signature")
                     || !testVersIdNumber(s[3])) {
-                Error("must match 'Revision-<int>-Signature-<int>'");
+                continueError("must match 'Revision-<int>-Signature-<int>'");
                 confirmError();
                 return false;
             }
@@ -2033,7 +1968,7 @@ public class TestValues extends TestSupport {
                     || !testVersIdNumber(s[1])
                     || !equals(s[2], "Document")
                     || !testVersIdNumber(s[3])) {
-                Error("must match 'Revision-<int>-Document-<int>'");
+                continueError("must match 'Revision-<int>-Document-<int>'");
                 confirmError();
                 return false;
             }
@@ -2046,7 +1981,7 @@ public class TestValues extends TestSupport {
                     || !testVersIdNumber(s[3])
                     || !equals(s[4], "Encoding")
                     || !testVersIdNumber(s[5])) {
-                Error("must match 'Revision-<int>-Document-<int>- Encoding-<int>'");
+                continueError("must match 'Revision-<int>-Document-<int>- Encoding-<int>'");
                 confirmError();
                 return false;
             }
@@ -2060,7 +1995,7 @@ public class TestValues extends TestSupport {
                     || !equals(s[4], "Encoding")
                     || !testVersIdNumber(s[5])
                     || !equals(s[6], "DocumentData")) {
-                Error("must match 'Revision-<int>-Document-<int>- Encoding-<int>-DocumentData'");
+                continueError("must match 'Revision-<int>-Document-<int>- Encoding-<int>-DocumentData'");
                 confirmError();
                 return false;
             }
@@ -2069,7 +2004,7 @@ public class TestValues extends TestSupport {
     }
 
     /**
-     * TestSupport to see if a string contains a number
+     * Test to see if a string contains a number
      */
     private boolean testVersIdNumber(String s) {
         try {
@@ -2101,8 +2036,8 @@ public class TestValues extends TestSupport {
                 if (attr.getNodeName().trim().equals("scheme")) {
                     s = attr.getNodeValue().trim().toLowerCase();
                     if (!equals(s, "iso 8061") && !equals(s, "iso8061")) {
-                        startAttrError(n, id, attr, true);
-                        Error("Attribute value should be 'ISO 8061.'");
+                        startAttrError("testDateValue", 1, n, id, attr, true);
+                        continueError("Attribute value should be 'ISO 8061.'");
                         confirmError();
                         return false;
                     }
@@ -2111,17 +2046,17 @@ public class TestValues extends TestSupport {
         }
 
         // check value
-        startValueError(n, id, true);
+        startValueError("testDateValue", 2, n, id, true);
         s = getValue(n).trim();
         if (s.length() < 4) {
-            dateFailed(n, 0, "Year must match 'yyyy'");
+            dateFailed("Year must match 'yyyy'");
             return false;
         }
         if (!(Character.isDigit(s.charAt(0)))
                 || !(Character.isDigit(s.charAt(1)))
                 || !(Character.isDigit(s.charAt(2)))
                 || !(Character.isDigit(s.charAt(3)))) {
-            dateFailed(n, 0, "Year must match 'yyyy'");
+            dateFailed("Year must match 'yyyy'");
             return false;
         }
         if (s.length() == 4) {
@@ -2129,21 +2064,21 @@ public class TestValues extends TestSupport {
         }
 
         if (s.length() < 7) {
-            dateFailed(n, 4, "Month must match '-MM'");
+            dateFailed("Month must match '-MM'");
             return false;
         }
         if (s.charAt(4) != '-') {
-            dateFailed(n, 4, "separator must be '-'");
+            dateFailed("separator between year and month must be '-'");
             return false;
         }
         if (!(Character.isDigit(s.charAt(5)))
                 || !(Character.isDigit(s.charAt(6)))) {
-            dateFailed(n, 5, "Month must be two digits");
+            dateFailed("Month must be two digits");
             return false;
         }
         i = Character.digit(s.charAt(5), 10) * 10 + Character.digit(s.charAt(6), 10);
         if (i < 1 || i > 12) {
-            dateFailed(n, 5, "month must be in the range '01' to '12'");
+            dateFailed("month must be in the range '01' to '12'");
             return false;
         }
 
@@ -2152,21 +2087,21 @@ public class TestValues extends TestSupport {
         }
 
         if (s.length() < 10) {
-            dateFailed(n, 7, "Day must match '-dd'");
+            dateFailed("Day must match '-dd'");
             return false;
         }
         if (s.charAt(7) != '-') {
-            dateFailed(n, 7, "separator must be '-'");
+            dateFailed("separator between month and day must be '-'");
             return false;
         }
         if (!(Character.isDigit(s.charAt(8)))
                 || !(Character.isDigit(s.charAt(9)))) {
-            dateFailed(n, 8, "day must be two digits");
+            dateFailed("day must be two digits");
             return false;
         }
         i = Character.digit(s.charAt(8), 10) * 10 + Character.digit(s.charAt(9), 10);
         if (i < 1 || i > 31) {
-            dateFailed(n, 8, "day must be in the range '01' to '31'");
+            dateFailed("day must be in the range '01' to '31'");
             return false;
         }
 
@@ -2175,49 +2110,49 @@ public class TestValues extends TestSupport {
         }
 
         if (s.length() < 20) {
-            dateFailed(n, 10, "Times must match 'Thh:mm:ssZ[xx:yy]'");
+            dateFailed("Times must match 'Thh:mm:ssZ[xx:yy]'");
             return false;
         }
 
         if (s.charAt(10) != 'T') {
-            dateFailed(n, 10, "separator must be 'T'");
+            dateFailed("separator between day and hour must be 'T'");
             return false;
         }
         if (!(Character.isDigit(s.charAt(11)))
                 || !(Character.isDigit(s.charAt(12)))) {
-            dateFailed(n, 11, "hour must be two digits");
+            dateFailed("hour must be two digits");
             return false;
         }
         if (Character.digit(s.charAt(11), 10) * 10 + Character.digit(s.charAt(12), 10) > 23) {
-            dateFailed(n, 11, "hour must be in the range '00' to '23'");
+            dateFailed("hour must be in the range '00' to '23'");
             return false;
         }
 
         if (s.charAt(13) != ':') {
-            dateFailed(n, 13, "separator must be ':'");
+            dateFailed("separator between hour and minutes must be ':'");
             return false;
         }
         if (!(Character.isDigit(s.charAt(14)))
                 || !(Character.isDigit(s.charAt(15)))) {
-            dateFailed(n, 14, "minutes must be two digits");
+            dateFailed("minutes must be two digits");
             return false;
         }
         if (Character.digit(s.charAt(14), 10) * 10 + Character.digit(s.charAt(15), 10) > 59) {
-            dateFailed(n, 14, "minutes must be in the range '00' to '59'");
+            dateFailed("minutes must be in the range '00' to '59'");
             return false;
         }
 
         if (s.charAt(16) != ':') {
-            dateFailed(n, 16, "separator must be ':'");
+            dateFailed("separator between minutes and seconds must be ':'");
             return false;
         }
         if (!(Character.isDigit(s.charAt(17)))
                 || !(Character.isDigit(s.charAt(18)))) {
-            dateFailed(n, 17, "seconds must be two digits");
+            dateFailed("seconds must be two digits");
             return false;
         }
         if (Character.digit(s.charAt(17), 10) * 10 + Character.digit(s.charAt(18), 10) > 59) {
-            dateFailed(n, 17, "seconds must be in the range '00' to '59'");
+            dateFailed("seconds must be in the range '00' to '59'");
             return false;
         }
 
@@ -2227,35 +2162,35 @@ public class TestValues extends TestSupport {
 
         if (!(s.charAt(19) == '+' || s.charAt(19) == '-')) {
 
-            dateFailed(n, 19, "Timezone must be 'Z' or '+hh:mm' or '-hh:mm'");
+            dateFailed("Timezone after time must be 'Z' or '+hh:mm' or '-hh:mm'");
             return false;
         }
 
         if (s.length() < 25) {
-            dateFailed(n, 20, "Timezones must match 'mm:ss'");
+            dateFailed("Timezones must match 'mm:ss'");
             return false;
         }
         if (!(Character.isDigit(s.charAt(20)))
                 || !(Character.isDigit(s.charAt(21)))) {
-            dateFailed(n, 20, "minutes must be two digits");
+            dateFailed("hours in timezone must be two digits");
             return false;
         }
         if (Character.digit(s.charAt(20), 10) * 10 + Character.digit(s.charAt(21), 10) > 14) {
-            dateFailed(n, 20, "hours must be in the range '00' to '14'");
+            dateFailed("hours in timezone must be in the range '00' to '14'");
             return false;
         }
 
         if (s.charAt(22) != ':') {
-            dateFailed(n, 22, "separator must be ':'");
+            dateFailed("separator between hours and minutes in timezone must be ':'");
             return false;
         }
         if (!(Character.isDigit(s.charAt(23)))
                 || !(Character.isDigit(s.charAt(24)))) {
-            dateFailed(n, 23, "minutes must be two digits");
+            dateFailed("minutes in timezone must be two digits");
             return false;
         }
         if (Character.digit(s.charAt(23), 10) * 10 + Character.digit(s.charAt(24), 10) > 59) {
-            dateFailed(n, 23, "minutes must be in the range '00' to '59'");
+            dateFailed("minutes in timezone must be in the range '00' to '59'");
             return false;
         }
         return true;
@@ -2264,17 +2199,8 @@ public class TestValues extends TestSupport {
     /**
      * Generic date message
      */
-    private void dateFailed(Node n, int posn, String err) {
-        String s;
-        int i;
-
-        s = n.getNodeName();
-        Error("      ");
-        for (i = 0; i < s.length() + posn + 37; i++) {
-            Error("-");
-        }
-        Error("^ ");
-        Error(err);
+    private void dateFailed(String err) {
+        continueError(err);
         confirmError();
     }
 
@@ -2286,8 +2212,8 @@ public class TestValues extends TestSupport {
      * @param n	element
      * @param id	VERS id of element we are testing
      */
-    private void startElementError(Node n, int id) {
-        startError(1, "Error in element <" + n.getNodeName() + "> (M" + id + ")");
+    private void startElementError(String method, int errid, Node n, int id) {
+        startError(method, errid, "Error in element <" + n.getNodeName() + "> (M" + id + ")");
     }
 
     /**
@@ -2301,17 +2227,19 @@ public class TestValues extends TestSupport {
      * @param attr	attribute
      * @param printValue print the attribute value if true
      */
-    private void startAttrError(Node element, int id, Node attr, boolean printValue) {
+    private void startAttrError(String method, int errid, Node element, int id, Node attr, boolean printValue) {
         StringBuffer sb;
 
         sb = new StringBuffer();
-        sb.append("Error in attribute ");
+        sb.append("Attribute error in <");
+        sb.append(element.getNodeName());
+        sb.append(" ");
         sb.append(attr.getNodeName() + " ");
         if (printValue) {
-            sb.append("(value='" + attr.getNodeValue() + "') ");
+            sb.append("=\"" + attr.getNodeValue() + "\"");
         }
-        sb.append("in element <" + element.getNodeName() + "> (M" + id + ")");
-        startError(2, sb.toString());
+        sb.append("> (M" + id + ")");
+        startError(method, errid, sb.toString());
     }
 
     /**
@@ -2323,82 +2251,86 @@ public class TestValues extends TestSupport {
      * @param id	VERS id of element we are testing
      * @param printValue print the value if true
      */
-    private void startValueError(Node n, int id, boolean printValue) {
+    private void startValueError(String method, int errid, Node n, int id, boolean printValue) {
         String s;
         StringBuffer sb;
 
         sb = new StringBuffer();
-        sb.append("Error in value of element <" + n.getNodeName() + "> (M" + id + ").");
+        sb.append("Element error in <" + n.getNodeName() + "> (M" + id + "):");
         if (printValue) {
             sb.append(" Value is ");
             s = getValue(n);
             if (s.equals("") || s.equals(" ")) {
                 sb.append("<empty>");
             } else {
-                sb.append("'" + s + "'");
+                sb.append("\"" + s + "\"");
             }
         }
-        startError(3, sb.toString());
+        startError(method, errid, sb.toString());
     }
 
     /**
      * Start a tentative error message about a missing element that is mandatory
      * in version 2
      */
-    private void startV2MissingError() {
-        startError(4, "Element that is mandatory in a version 2 VEO is missing");
+    private void startV2MissingError(String method, int errid) {
+        startError(method, errid, "Element that is mandatory in a version 2 VEO is missing");
     }
 
     /**
      * Start a tentative error message about a missing element that is mandatory
      * in version 1
      */
-    private void startV1MissingError() {
-        startError(5, "Element that is mandatory in a version 1 VEO is missing");
+    private void startV1MissingError(String method, int errid) {
+        startError(method, errid, "Element that is mandatory in a version 1 VEO is missing");
     }
 
     /**
      * Start a tentative error message about a mandatory missing element
      */
-    private void startMissingError() {
-        startError(6, "Missing mandatory element");
+    private void startMissingError(String method, int errid) {
+        startError(method, errid, "Missing mandatory element");
     }
 
     /**
      * Start a tentative error message about a V2 feature in a V1 VEO
      */
-    private void startV2inV1Error() {
-        startError(7, "Version 2 feature in a version 1 VEO");
+    private void startV2inV1Error(String method, int errid) {
+        startError(method, errid, "Version 2 feature in a version 1 VEO");
     }
 
     /**
      * Start a tentative error message about a V1 feature in a V2 VEO
      */
-    private void startV1inV2Error() {
-        startError(8, "Version 1 feature in a version 2 VEO");
+    private void startV1inV2Error(String method, int errid) {
+        startError(method, errid, "Version 1 feature in a version 2 VEO");
     }
 
     /**
      * Start a tentative error message about a missing mandatory attribute in a
      * V2 VEO
      */
-    private void startMissingAttrError() {
-        startError(9, "Missing mandatory attribute in a version 2 VEO");
+    private void startMissingAttrError(String method, int errid) {
+        startError(method, errid, "Missing mandatory attribute in a version 2 VEO");
     }
 
     /**
      * Start an error message for a check value
      */
-    private void startError(int id, String s) {
+    private String method;
+    private int errid;
+
+    private void startError(String method, int errid, String s) {
+        this.method = method;
+        this.errid = errid;
         errorMsg.setLength(0);
-        errorMsg.append("VAL" + id + ": " + s);
-        errorMsg.append("\r\n");
+        errorMsg.append(s + ": ");
     }
 
     /**
      * Continue an error message
      */
-    private void Error(String s) {
+    private void continueError(String s) {
         errorMsg.append(s);
     }
 
@@ -2406,9 +2338,26 @@ public class TestValues extends TestSupport {
      * We have decided the error actually did occur, so print it
      */
     private void confirmError() {
-        print(errorMsg.toString() + "\r\n");
+        failed("TestValues", method, errid, errorMsg.toString());
+        /*
+        VEOFailure vf;
+        
+        vf = new VEOFailure("TestValues", method, errid, errorMsg.toString());
+        addError(vf);
+        // print(errorMsg.toString() + "\r\n");
         if (results != null) {
-            results.recordResult(Type.ERROR, "FAILURE: INVALID VALUE: " + errorMsg.toString(), filename, null);
+            results.recordResult(Type.ERROR, "FAILURE: INVALID VALUE: " + errorMsg.toString(), veoName, null);
         }
+         */
+    }
+
+    /**
+     * Must override...
+     *
+     * @return
+     */
+    @Override
+    public String toString() {
+        return null;
     }
 }

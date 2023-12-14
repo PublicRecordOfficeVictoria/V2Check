@@ -29,9 +29,11 @@ package VEOCheck;
  * <li>20190909 Added support for SHA-384
  * </ul>
  *
- *************************************************************
+ ************************************************************
  */
-import VERSCommon.*;
+import VERSCommon.B64;
+import VERSCommon.ResultSummary;
+import VERSCommon.VEOFailure;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -49,13 +51,16 @@ import java.nio.charset.CoderResult;
 import java.security.*;
 import java.security.cert.*;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class TestSignatures extends TestSupport {
 
-    // state machine
-    TSState[] tsstate = new TSState[30];
+    TSState[] tsstate = new TSState[30]; // state machine
+    CharsetDecoder cd;  // character decoder
+    static B64 b64c = new B64(); // converter from Base64 no longer used
+    static Base64.Decoder b64d = Base64.getDecoder();
 
     // lock signature block and signature blocks
     SigChecker root;        // root of verifier checkers
@@ -66,12 +71,6 @@ public class TestSignatures extends TestSupport {
     // or lock signature block
     SigChecker sigBlock;    // information about a signature block
     ArrayList<String> certChain; // information about a certificate chain
-
-    // converter from Base64
-    static B64 b64c = new B64();
-
-    // character decoder
-    CharsetDecoder cd;
 
     // true when processing a signed object in a vers:RevisedVEO
     boolean ignoreSignedObject;
@@ -92,10 +91,11 @@ public class TestSignatures extends TestSupport {
      * @param da
      * @param oneLayer
      * @param out
+     * @param results
      */
     public TestSignatures(boolean verbose, boolean debug, boolean strict,
-            boolean da, boolean oneLayer, Writer out, ResultSummary results) {
-        super(verbose, strict, da, oneLayer, out, results);
+            boolean oneLayer, Writer out, ResultSummary results) {
+        super(verbose, strict, oneLayer, out, results);
         this.debug = debug;
 
         // set up state machine
@@ -165,6 +165,7 @@ public class TestSignatures extends TestSupport {
     /**
      * This class tests the signatures in a VEO.
      *
+     * @param filename
      * @param veo
      * @return true if all the signatures verified
      */
@@ -191,7 +192,7 @@ public class TestSignatures extends TestSupport {
         certChain = new ArrayList<>();
         ignoreSignedObject = false;
         firstSignatureBlock = true;
-        this.filename = filename;
+        this.veoName = filename;
 
         // open the VEO for buffered reading
         if (veo == null) {
@@ -432,7 +433,9 @@ public class TestSignatures extends TestSupport {
                 }
                 if (sc == null) {
                     startSubTest("TESTING SIGNATURES");
-                    failed("Lock signature validation failed: The Lock Signature purports to sign vers:Signature element with vers:id '" + lockSigBlock.getId() + "' but this element does not exist", true);
+                    failed("TestSignatures", "performAction", 1,
+                            "Lock signature validation failed: The Lock Signature purports to sign vers:Signature element with vers:id '"
+                            + lockSigBlock.getId() + "' but this element does not exist");
                     failed = true;
                 }
             }
@@ -575,6 +578,7 @@ public class TestSignatures extends TestSupport {
         boolean isFirst;	// true if the first signature block found
         boolean isLockSig;	// true if lock signature
         String id;		// vers:Id
+        String location;           // identification of the signature
         String sigAlgId;	// signature algorithm identifier
         String signature;	// signature
         ArrayList<ArrayList<String>> certChain; // certificate chain
@@ -605,6 +609,7 @@ public class TestSignatures extends TestSupport {
             this.isFirst = isFirst;
             this.isLockSig = isLockSig;
             id = null;
+            location = null;
             sigAlgId = null;
             signature = null;
             certChain = new ArrayList<>();
@@ -659,12 +664,14 @@ public class TestSignatures extends TestSupport {
         }
 
         /**
-         * Set the signature
+         * Set the signature. There's a hack here... the state machine includes
+         * the '&lt;' of the &lt;vers:Signature&gt; as the final character of
+         * the signature, so we strip it off before storing it.
          *
          * @parem signature	value of the vers:Signature element
          */
         public void setSignature(String signature) {
-            this.signature = signature;
+            this.signature = signature.substring(0, signature.length() - 1);
         }
 
         /**
@@ -722,15 +729,13 @@ public class TestSignatures extends TestSupport {
 
             // preamble to error message
             startSubTest("TESTING SIGNATURES");
-            print("Validating ");
             if (isLockSig) {
-                print("Lock Signature (signs vers:Signature \"" + id + "\")");
+                location = "Lock Signature (signs vers:Signature \"" + id + "\")";
             } else if (id != null) {
-                print("Signature (vers:id=\"" + id + "\")");
+                location = "Signature (vers:id=\"" + id + "\")";
             } else {
-                print("Signature (without vers:id)");
+                location = "Signature (without vers:id)";
             }
-            print(": ");
 
             // work out which algorithms were being used
             switch (sigAlgId) {
@@ -763,23 +768,29 @@ public class TestSignatures extends TestSupport {
                     mdAlgorithm = "SHA-512";
                     break;
                 default:
-                    failed("The signature algorithm identifier ('" + sigAlgId + "') contained in the vers:SignatureAlgorithmIdentifier (M150) element is not recognised", true);
+                    failed("TestSignatures", "setUpVerification", 1, location,
+                            "The signature algorithm identifier ('" + sigAlgId + "') contained in the vers:SignatureAlgorithmIdentifier (M150) element is not recognised");
                     return false;
             }
 
             // extract public key from first certificate
+            // first two tests should never fail as VEO would fail the DTD
             if (certChain.size() < 1) {
-                failed("The signature block does not contain any vers:CertificateBlock (M139) elements", true);
+                failed("TestSignatures", "setUpVerification", 2, location, "The signature block does not contain any vers:CertificateBlock (M139) elements");
                 return false;
             }
             v = certChain.get(0);
             if (v.size() < 1 || v.get(0) == null) {
-                failed("The first vers:CertificateBlock (M139) in the signature does not contain any vers:Certificate (M140) elements", true);
+                failed("TestSignatures", "setUpVerification", 3, location, "The first vers:CertificateBlock (M139) in the signature does not contain any vers:Certificate (M140) elements");
                 return false;
             }
-            x509c = extractCertificate(v.get(0));
-            if (x509c == null) {
-                failed("Could not decode the vers:Certificate (M140) in the first vers:CertificateBlock (M139) element", true);
+            try {
+                x509c = extractCertificate(v.get(0));
+            } catch (CertificateException e) {
+                failed("TestSignatures", "setUpVerification", 4, location, "Could not decode the first vers:Certificate (M140) in the first vers:CertificateBlock (M139) element", e);
+                return false;
+            } catch (IllegalArgumentException e) {
+                failed("TestSignatures", "setUpVerification", 5, location, "Could not decode the Base64 containing the first vers:Certificate (M140)", e);
                 return false;
             }
 
@@ -789,10 +800,10 @@ public class TestSignatures extends TestSupport {
                 sig.initVerify(x509c.getPublicKey());
                 md = MessageDigest.getInstance(mdAlgorithm);
             } catch (NoSuchAlgorithmException nsae) {
-                println("Security package does not support the signature or message digest algorithm. Error reported: " + nsae.getMessage());
+                LOG.log(Level.SEVERE, "Security package does not support the signature or message digest algorithm. Error reported: {0}", nsae.getMessage());
                 return false;
             } catch (InvalidKeyException ike) {
-                failed("Security package reports that public key is invalid. Error reported: " + ike.getMessage(), true);
+                failed("TestSignatures", "setUpVerification", 6, location, "The public key in the first certificat is invalid", ike);
                 return false;
             }
 
@@ -805,7 +816,7 @@ public class TestSignatures extends TestSupport {
                 osw = new OutputStreamWriter(fos, Charset.forName("UTF-8"));
                 bw = new BufferedWriter(osw);
             } catch (IOException ioe) {
-                failed("Failed trying to write dump file: " + ioe.getMessage());
+                LOG.log(Level.WARNING, "TestSignatures", "performAction", 6,"Failed trying to write dump file: " + ioe.getMessage());
                 return false;
             } */
             // cancel the report on the sub test... initialising worked!
@@ -814,31 +825,32 @@ public class TestSignatures extends TestSupport {
         }
 
         /**
-         * Decode a string containing base64 into an X.509 certifcate
+         * Decode a string containing base64 into an X.509 certificate. Assume
+         * that generateCertificate() returns either a certificate or a
+         * CertificateException. Returns null if a mechanical problem occurred
+         * with the certificate (e.g. the Base64 was wrong), or a Certificate
+         * Exception if it couldn't be decoded.
          */
-        private X509Certificate extractCertificate(String s) {
+        private X509Certificate extractCertificate(String s) throws CertificateException, IllegalArgumentException {
             CertificateFactory cf;
             ByteArrayInputStream bais;
             X509Certificate x509ci;
             byte[] b;
-            int i;
 
-            try {
-                cf = CertificateFactory.getInstance("X.509");
-                b = decodeB64String(s);
-                bais = new ByteArrayInputStream(b);
-                x509ci = (X509Certificate) cf.generateCertificate(bais);
-                bais.close();
-            } catch (CertificateException | IOException ce) {
-                print("Error decoding certificate: " + ce.getMessage() + "\r\n");
-                return null;
+            cf = CertificateFactory.getInstance("X.509");
+            // b = decodeB64String(s);
+            b = b64d.decode(s);
+            bais = new ByteArrayInputStream(b);
+            x509ci = (X509Certificate) cf.generateCertificate(bais);
+            if (x509ci == null) {
+                LOG.log(Level.WARNING, "Extracting certificate returned a null, instead of a CertificateException (TestSignatures.extractCertificate()");
             }
             return x509ci;
-
         }
 
         /**
-         * Decode a string containing base64 into a byte array
+         * Decode a string containing base64 into a byte array. This has been
+         * replaced by the standard Java util Base64 decoder.
          */
         private byte[] decodeB64String(String s) throws IOException {
             ByteArrayOutputStream baos;
@@ -889,7 +901,7 @@ public class TestSignatures extends TestSupport {
             try {
                 sig.update(b);
             } catch (SignatureException se) {
-                print("TestSignatures.nextChar() signature update failed: " + se.getMessage());
+                LOG.log(Level.WARNING, "TestSignatures.nextChar() signature update failed: {0}", se.getMessage());
             }
             md.update(b);
 
@@ -915,15 +927,11 @@ public class TestSignatures extends TestSupport {
          * @return true if the signature and lock signature verified (including
          * the certificates)
          */
-        public boolean finaliseVerification() throws IOException {
+        public boolean finaliseVerification() {
             int i;
-            byte[] b, h;
+            byte[] b;
             boolean passed;
             ArrayList<String> v;
-            X509Certificate x509cl;
-            char[] charbuf = {'0', '1', '2', '3', '4', '5', '6', '7',
-                '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
-            String sigId;
 
             // use the following when outputing the byte stream to be verified
             /*
@@ -939,114 +947,43 @@ public class TestSignatures extends TestSupport {
                 return true;
             }
 
-            // which signature are we looking at?
-            if (isLockSig) {
-                sigId = "Lock Signature (signs vers:Signature \"" + id + "\")";
-            } else if (id != null) {
-                sigId = "Signature (vers:id=\"" + id + "\")";
-            } else {
-                sigId = "Signature (has no vers:id)";
-            }
-
             // verify the signature...
             startSubTest("SIGNATURE");
             passed = true;
-            b = decodeB64String(signature);
+            try {
+                // b = decodeB64String(signature);
+                b = b64d.decode(signature);
+            } catch (IllegalArgumentException iae) {
+                failed("TestSignatures", "finaliseVerification", 1, null, "Base64 decoding of signature failed for " + location, iae);
+                return false;
+            }
             try {
                 if (!sig.verify(b)) {
                     // signature verification failed :-( 
-                    print("Signature verification failed for " + sigId);
+                    failed("TestSignatures", "finaliseVerification", 2, "Signature verification failed for " + location);
                     passed = false;
                 } else if (verbose) {
                     // succeded, but only say if verbose
-                    print(sigId + " VERIFIED :-)");
+                    report(location + " VERIFIED :-)");
                 }
             } catch (SignatureException se) {
-                print("TestSignature.finaliseVerification() verify:" + se.getMessage());
+                failed("TestSignatures", "finaliseVerification", 3, null, "Signature verification failed for " + location, se);
                 passed = false;
             }
 
-            // dump the signature
+            // dump information about the signature 
             if (verbose) {
-                println("");
-                println("  Signature/Hash algorithm: "+sigAlgorithm);
-                println("  Signature (base64): " + signature);
-                print("  Signature (hex): ");
-                for (i = 0; i < b.length; i++) {
-                    print(charbuf[(b[i] >> 4) & 0x0f]);
-                    print(charbuf[(b[i] & 0x0f)]);
-                }
-                println("");
-
-                // calculate and print the message digest
-                print("  Hash of signed object: ");
-                h = md.digest();
-                for (i = 0; i < h.length; i++) {
-                    print(charbuf[(h[i] >> 4) & 0x0f]);
-                    print(charbuf[(h[i] & 0x0f)]);
-                }
-                println("");
-
-                // print the contents of the certificate
-                if (certChain.size() < 1) {
-                    print("No vers:CertificateBlock found\r\n");
-                } else {
-                    v = certChain.get(0);
-                    if (v.size() < 1) {
-                        print("No vers:Certificates found in first vers:CertificateBlock\r\n");
-                    } else {
-                        x509cl = extractCertificate(v.get(0));
-                        if (x509cl != null) {
-                            print("  Certificate: Subject: ");
-                            print(x509cl.getSubjectX500Principal().getName());
-                            print(" issued by: ");
-                            println(x509cl.getIssuerX500Principal().getName());
-                            println(x509cl.toString());
-                        } else {
-                            println("  Certificate: Empty");
-                        }
-                    }
-                }
-
-                // check DER encoding?
-                // DER der = new DER(DER.INTEGER);
-                // println("DER: "+der.toString(b, 0, b.length, 0));
-                // if signature didn't work, check to see if signature
-                // is reversed e.g. Microsoft's CryptoAPI
-                if (!passed) {
-                    println("");
-                    for (i = 0; i < b.length / 2; i++) {
-                        byte t = b[i];
-                        b[i] = b[b.length - 1 - i];
-                        b[b.length - 1 - i] = t;
-                    }
-                    println("");
-                    try {
-                        if (sig.verify(b)) {
-                            print("The signature is reversed (i.e. the most significant\r\n");
-                            print("octet is the last octet. Such signatures do not\r\n");
-                            print("conform to RSA's PKCS #1. These signatures should\r\n");
-                            print("be reversed when the VEO is generated.\r\n");
-                        }
-                    } catch (SignatureException se) {
-                        print("TestSignature.finaliseVerification() verify:" + se.getMessage());
-                        passed = false;
-                    }
-                }
+                dumpSignatureInfo(b, passed);
             }
 
             // verify each certificate chain
             for (i = 0; i < certChain.size(); i++) {
                 v = certChain.get(i);
-                passed &= verifyCertificateChain(sigId, v);
+                passed &= verifyCertificateChain(location, v);
             }
 
-            // finish testing this signature checker itself
-            if (!passed) {
-                failed("", true);
-            } else if (verbose) {
-                passed("");
-            } else {
+            // finished testing this signature checker itself
+            if (passed) {
                 cancelSubTest();
             }
 
@@ -1055,10 +992,10 @@ public class TestSignatures extends TestSupport {
                 if (!lockSig.setUpVerification()) {
                     return false;
                 }
-                lockSig.initialiseVerification(signature.substring(0, signature.length() - 1));
+                // lockSig.initialiseVerification(signature.substring(0, signature.length() - 1)); this removed the trailing < to verify
+                lockSig.initialiseVerification(signature);
                 passed &= lockSig.finaliseVerification();
             }
-
             return passed;
         }
 
@@ -1074,49 +1011,43 @@ public class TestSignatures extends TestSupport {
 
             // get first certificate (to be verified)
             passed = true;
-            if (chain.size() < 1) {
-                print("No vers:Certificates (M140) found in first vers:CertificateBlock (M139) in " + sigId);
+            if (chain.size() < 1) { // this should never happen (already tested when verifying signature)
+                LOG.log(Level.SEVERE, VEOFailure.getMessage("TestSignatures", "verifyCertificateChain", 1, "No vers:Certificates (M140) found in first vers:CertificateBlock (M139) in " + sigId));
                 return false;
             }
-            x509cl = extractCertificate(chain.get(0));
-            if (x509cl == (X509Certificate) null) {
-                print("First certificate could not be extracted from " + sigId);
-                println(" (it could be empty).");
-                print("Remaining certificates have not been checked");
+            try {
+                x509cl = extractCertificate(chain.get(0));
+            } catch (CertificateException e) {
+                LOG.log(Level.SEVERE, VEOFailure.getMessage("TestSignatures", "verifyCertificateChain", 2, null, "First certificate could not be decoded from " + sigId + " (it could be empty). Remaining certificates have not been checked", e));
+                return false;
+            } catch (IllegalArgumentException e) {
+                LOG.log(Level.SEVERE, VEOFailure.getMessage("TestSignatures", "verifyCertificateChain", 3, null, "Could not decode Base64 containing the first vers:Certificate (M140)", e));
                 return false;
             }
-            subject = x509cl.getSubjectX500Principal().getName();
-            issuer = x509cl.getIssuerX500Principal().getName();
 
-            // verify chain
+            // verify chain (2nd & subsequent certificates
             for (i = 1; i < chain.size(); i++) {
                 s = chain.get(i);
-                signer = extractCertificate(s);
-                if (signer == null) {
+                try {
+                    signer = extractCertificate(s);
+                } catch (CertificateException | IllegalArgumentException e) {
                     switch (i) {
                         case 1:
-                            println("Could not decode the vers:Certificate (M140) in the second vers:CertificateBlock (M139) element in " + sigId);
+                            failed("TestSignatures", "verifyCertificateChain", 4, null, "Could not decode the vers:Certificate (M140) in the second vers:CertificateBlock (M139) element in " + sigId + ". Remaining certificates have not been checked", e);
                             break;
                         case 2:
-                            println("Could not decode the vers:Certificate (M140) in the third vers:CertificateBlock (M139) element in " + sigId);
+                            failed("TestSignatures", "verifyCertificateChain", 5, null, "Could not decode the vers:Certificate (M140) in the third vers:CertificateBlock (M139) element in " + sigId + ". Remaining certificates have not been checked", e);
                             break;
                         default:
-                            println("Could not decode the vers:Certificate (M140) in the " + i + "th vers:CertificateBlock (M139) element in " + sigId);
+                            failed("TestSignatures", "verifyCertificateChain", 6, null, "Could not decode the vers:Certificate (M140) in the " + i + "th vers:CertificateBlock (M139) element in " + sigId + ". Remaining certificates have not been checked", e);
                             break;
                     }
-                    print("Remaining certificates have not been checked");
                     return false;
                 }
-                if (!verifyCertificate(x509cl, signer)) {
-                    println("Certificate " + (i - 1) + " of " + sigId + " failed verification ");
-                    println("  Subject of certificate is: " + subject);
-                    print("  Issuer of certificate is: " + issuer);
+                if (!verifyCertificate(i, x509cl, signer)) {
                     if (verbose) {
-                        println("");
-                        println("Certificate that failed verification:");
-                        println(x509cl.toString());
-                        println("Signing Certificate:");
-                        println(signer.toString());
+                        report("Certificate that failed verification:" + x509cl.toString() + "\n");
+                        report("Signing Certificate:" + signer.toString() + "\n");
                     }
                     passed = false;
                 }
@@ -1124,19 +1055,17 @@ public class TestSignatures extends TestSupport {
             }
 
             // final certificate should be self signed...
-            if (!verifyCertificate(x509cl, x509cl)) {
-                print("Final certificate of " + sigId + " failed verification. ");
-                if (!subject.equals(issuer)) {
-                    println("Certificate is not self signed");
-                } else {
-                    println(" ");
-                }
-                println("  Subject of final certificate is: " + subject);
-                print("  Issuer of final certificate is: " + issuer);
+            if (!verifyCertificate(i, x509cl, x509cl)) {
+                passed = false;
+            }
+
+            // check if final certificate is self signed
+            subject = x509cl.getSubjectX500Principal().getName();
+            issuer = x509cl.getIssuerX500Principal().getName();
+            if (!subject.equals(issuer)) {
+                failed("TestSignatures", "verifyCertificateChain", 7, null, "Final certificate is not self signed (Subject: " + subject + " & Issuer:" + issuer + " are not the same)");
                 if (verbose) {
-                    println(" ");
-                    println("Certificate that failed verification:");
-                    print(x509cl.toString());
+                    report("Certificate that failed verification:" + x509cl.toString() + "\n");
                 }
                 passed = false;
             }
@@ -1147,28 +1076,115 @@ public class TestSignatures extends TestSupport {
          * Verifies that the CA in the second certificate created the first
          * certificate. Returns true if the certificate verified.
          */
-        private boolean verifyCertificate(X509Certificate first,
-                X509Certificate second) {
+        private boolean verifyCertificate(int cert, X509Certificate first, X509Certificate second) {
             // println("First certificate: "+first.toString());
             try {
                 first.verify(second.getPublicKey());
             } catch (SignatureException e) {
-                failed("Signature of Certificate failed to verify: " + e.getMessage() + "\r\n", true);
+                if (first == second) { // i.e. last, self signed, certificate
+                    failed("TestSignatures", "verifyCertificate", 1, null, "Signature of final certificate (" + cert + ") was not self signed and failed to verify", e);
+                } else {
+                    failed("TestSignatures", "verifyCertificate", 2, null, "Signature of certificate " + cert + " failed to verify", e);
+                }
                 return false;
             } catch (CertificateException e) {
-                failed("Problem with Certificate: " + e.getMessage() + "\r\n", true);
+                failed("TestSignatures", "verifyCertificate", 3, null, "Problem with certificate " + cert, e);
                 return false;
             } catch (NoSuchAlgorithmException e) {
-                failed("Problem with Certificate: No Such Algorithm: " + e.getMessage() + "\r\n", true);
+                failed("TestSignatures", "verifyCertificate", 4, null, "Problem with certificate " + cert + ": No Such Algorithm", e);
                 return false;
             } catch (InvalidKeyException e) {
-                failed("Problem with Certificate: Invalid public key in Certificate: " + e.getMessage() + "\r\n", true);
+                failed("TestSignatures", "verifyCertificate", 5, null, "Problem with certificate " + cert + ": invalid public key in Certificate", e);
                 return false;
             } catch (NoSuchProviderException e) {
-                failed("Problem with Certificate: No such provider: " + e.getMessage() + "\r\n", true);
+                failed("TestSignatures", "verifyCertificate", 6, null, "Problem with certificate " + cert + ": no such provider", e);
                 return false;
             }
             return true;
+        }
+
+        /**
+         * Dump the information about the signature. Normally only used for
+         * debugging
+         */
+        private void dumpSignatureInfo(byte[] b, boolean passed) {
+            int i;
+            byte[] h;
+            X509Certificate x509cl;
+            ArrayList<String> v;
+            char[] charbuf = {'0', '1', '2', '3', '4', '5', '6', '7',
+                '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'};
+
+            report("");
+            report("  Signature/Hash algorithm: " + sigAlgorithm + "\n");
+            report("  Signature (base64): " + signature + "\n");
+            report("  Signature (hex): ");
+            for (i = 0; i < b.length; i++) {
+                report(charbuf[(b[i] >> 4) & 0x0f]);
+                report(charbuf[(b[i] & 0x0f)]);
+            }
+            report("\n");
+
+            // calculate and print the message digest
+            report("  Hash of signed object: ");
+            h = md.digest();
+            for (i = 0; i < h.length; i++) {
+                report(charbuf[(h[i] >> 4) & 0x0f]);
+                report(charbuf[(h[i] & 0x0f)]);
+            }
+            report("\n");
+
+            // print the contents of the certificate
+            if (certChain.size() < 1) {
+                report("No vers:CertificateBlock found");
+            } else {
+                v = certChain.get(0);
+                if (v.size() < 1) {
+                    report("No vers:Certificates found in first vers:CertificateBlock");
+                } else {
+                    x509cl = null;
+                    try {
+                        x509cl = extractCertificate(v.get(0));
+                    } catch (CertificateException e) {
+                        report("  First certificate could not be decoded: " + e.getMessage());
+                    } catch (IllegalArgumentException e) {
+                        report("  The Base64 containing the first certificate could not be decoded: " + e.getMessage());
+                    }
+                    report("  Certificate: ");
+                    if (x509cl != null) {
+                        report("Subject: ");
+                        report(x509cl.getSubjectX500Principal().getName());
+                        report(" issued by: ");
+                        report(x509cl.getIssuerX500Principal().getName());
+                        report(x509cl.toString());
+                    } else {
+                        report("Is empty");
+                    }
+                }
+            }
+            report("\n");
+
+            // check DER encoding?
+            // DER der = new DER(DER.INTEGER);
+            // println("DER: "+der.toString(b, 0, b.length, 0));
+            // if signature didn't work, check to see if signature
+            // is reversed e.g. Microsoft's CryptoAPI
+            if (!passed) {
+                for (i = 0; i < b.length / 2; i++) {
+                    byte t = b[i];
+                    b[i] = b[b.length - 1 - i];
+                    b[b.length - 1 - i] = t;
+                }
+                try {
+                    if (sig.verify(b)) {
+                        report("The signature is reversed (i.e. the most significant octet is the last octet. Such signatures do not\n");
+                        report("conform to RSA's PKCS #1. These signatures should be reversed when the VEO is generated.\n");
+                    }
+                } catch (SignatureException se) {
+                    // ignore as you'd expect it to fail
+                }
+            }
+
         }
 
         /**

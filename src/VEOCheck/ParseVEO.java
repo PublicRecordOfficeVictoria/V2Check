@@ -3,7 +3,6 @@
  * Licensed under the CC-BY license http://creativecommons.org/licenses/by/3.0/au/
  * Author Andrew Waugh
  */
-
 package VEOCheck;
 
 /**
@@ -14,9 +13,9 @@ package VEOCheck;
  * This class tests a VEO for conformance to a DTD. As a side effect, the VEO is
  * parsed into DOM for subsequent tests and we work out the version.
  *
- * 20180314 Added code to read vers.dtd from a standard location
- * 20150518 Imported into NetBeans.
- * 20180314 Altered so that caller can specify a DTD file
+ * 20180314 Added code to read vers.dtd from a standard location 20150518
+ * Imported into NetBeans. 20180314 Altered so that caller can specify a DTD
+ * file
  *
  * Andrew Waugh Copyright 2005 PROV
  *
@@ -37,29 +36,23 @@ import org.xml.sax.*;
 import org.w3c.dom.*;
 
 public class ParseVEO extends TestSupport {
+    private final static String CLASSNAME = "ParseVEO";
     private final static Logger LOG = Logger.getLogger("VEOCheck.ParseVEO");
-
-    // internal (DOM) representation of VEO being tested
-    private Element doc;
-
-    // parser
-    private DocumentBuilder db;
-
-    // stated version of this veo
-    String version;
+    private Element doc; // internal (DOM) representation of VEO being tested
+    private DocumentBuilder db; // parser
+    String version;      // stated version of this veo
 
     /**
      * Default constructor
      *
      * @param verbose true if give more information in the result
      * @param strict true if enforce strict compliance to VERS standard
-     * @param da
      * @param oneLayer true if only check outer layer of a modified DA
      * @param out StringBuilder to capture results of test
+     * @param results
      */
-    public ParseVEO(boolean verbose, boolean strict,
-            boolean da, boolean oneLayer, Writer out, ResultSummary results) {
-        super(verbose, strict, da, oneLayer, out, results);
+    public ParseVEO(boolean verbose, boolean strict, boolean oneLayer, Writer out, ResultSummary results) {
+        super(verbose, strict, oneLayer, out, results);
 
         DocumentBuilderFactory dbf;
 
@@ -68,22 +61,17 @@ public class ParseVEO extends TestSupport {
         dbf = DocumentBuilderFactory.newInstance();
         dbf.setNamespaceAware(true);
         dbf.setValidating(true);
-        /*
-         dbf.setIgnoringComments(false);
-         dbf.setIgnoringElementContentWhitespace(true);
-         dbf.setCoalescing(true);
-         dbf.setExpandEntityReferences(true);
-         */
 
         try {
             db = dbf.newDocumentBuilder();
         } catch (ParserConfigurationException pce) {
-            /* ignore */ }
+            LOG.log(Level.SEVERE, "Failed constructing document builder: {0}(" + CLASSNAME + ")", pce.toString());
+        }
 
         // Set error handler...
         db.setErrorHandler(new XMLParserErrorHandler());
 
-        version = null;
+        version = "Not known";
     }
 
     /**
@@ -109,16 +97,12 @@ public class ParseVEO extends TestSupport {
     /**
      * Parses the VEO, checking for conformance to the DTD.
      *
-     * @param filename the filename of the original VEO
+     * @param veoName the filename of the original VEO
      * @param f file containing the extracted VEO
      * @param dtd file containing the DTD to validate against
-     * @param useStdDtd if true, use the DTD from the web site
-     * @return true if parse suceeded
-     *
-     * ajw 20060809 Added information in error message to ensure user thinks about
-     * connecting to the network when using -useStdDtd
+     * @return true if parse succeeded
      */
-    public boolean performTest(String filename, File f, Path dtd, boolean useStdDtd) {
+    public boolean performTest(String veoName, File f, Path dtd) {
         NodeList nl;
         Node n;
         Document d;
@@ -127,7 +111,7 @@ public class ParseVEO extends TestSupport {
         InputSource is;
 
         printTestHeader("Parsing VEO");
-        this.filename = filename;
+        this.veoName = veoName;
 
         // Force the reading of the DTD from the file specified. This is called
         // when the parser needs to resolve an external entity. We check that
@@ -150,21 +134,12 @@ public class ParseVEO extends TestSupport {
             fis = new FileInputStream(f);
             bis = new BufferedInputStream(fis);
             is = new InputSource(bis);
-            if (useStdDtd) {
-                d = db.parse(bis, "http://www.prov.vic.gov.au/vers/standard/");
-            } else {
-                d = db.parse(is);
-            }
+            d = db.parse(is);
             doc = d.getDocumentElement();
             bis.close();
             fis.close();
-        } catch (IOException e) {
-            failed("IOException when parsing document: " + e.getMessage()
-                    + ". Note: if -useStdDtd command line option is being "
-                    + "used, the computer must be connected to the network.", true);
-            return false;
-        } catch (SAXException e) {
-            failed("SAXException when parsing document: " + e.getMessage(), true);
+        } catch (SAXException | IOException e) {
+            failed("ParseVEO", "performTest", 1, null, "Failed parsing VEO", e);
             return false;
         } finally {
             try {
@@ -185,13 +160,14 @@ public class ParseVEO extends TestSupport {
         // find version attribute
         nl = doc.getElementsByTagName("vers:Version");
         if (nl.getLength() == 0) {
-            version = null;
+            LOG.log(Level.WARNING, "*****PANIC in VEOCheck.ParseVEO.performTest(): Cannot find vers:Version element");
+            version = "Unknown";
             return false;
         }
         n = nl.item(0);
         if (n.getNodeType() != Node.ELEMENT_NODE) {
-            LOG.log(Level.WARNING, "*****PANIC in VEOCheck.ParseVEO.performTest(): Cannot find vers:Version element");
-            version = null;
+            LOG.log(Level.WARNING, "*****PANIC in VEOCheck.ParseVEO.performTest(): vers:Version is not an element");
+            version = "Unknown";
             return false;
         }
         version = getValue(n);
@@ -207,9 +183,11 @@ public class ParseVEO extends TestSupport {
         return doc;
     }
 
-    // Error handler to report errors and warnings
+    /**
+     * Error handler to handle XML parsing errors and warnings
+     */
+    
     private static class XMLParserErrorHandler implements ErrorHandler {
-
         XMLParserErrorHandler() {
         }
 
@@ -248,5 +226,10 @@ public class ParseVEO extends TestSupport {
             String msg = "Fatal Error: " + getParseExceptionInfo(spe);
             throw new SAXException(msg);
         }
+    }
+
+    @Override
+    public String toString() {
+        return null;
     }
 }

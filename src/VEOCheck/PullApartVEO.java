@@ -33,7 +33,8 @@ package VEOCheck;
  *
  *************************************************************
  */
-import VERSCommon.*;
+import VERSCommon.B64;
+import VERSCommon.VEOError;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
@@ -155,7 +156,6 @@ public class PullApartVEO extends DefaultHandler {
      * @param inVeo	the original VEO to pull apart
      * @param outVeo the generated VEO without document data
      * @param tempDir a directory in which to put the extracted content
-     * @param useStdDtd
      * @param extract if true extract the document data into files for
      * inspection
      * @param virusScanning if true the extracted document data will be scanned
@@ -164,7 +164,7 @@ public class PullApartVEO extends DefaultHandler {
      * @return lists of names of the extracted document data (empty if extract
      * is false)
      */
-    public ArrayList<String> extractDocumentData(Path inVeo, Path outVeo, Path tempDir, boolean useStdDtd, boolean extract, boolean virusScanning)
+    public ArrayList<String> extractDocumentData(Path inVeo, Path outVeo, Path tempDir, boolean extract, boolean virusScanning)
             throws VEOError {
         FileInputStream fis;
         BufferedInputStream bis;
@@ -206,13 +206,6 @@ public class PullApartVEO extends DefaultHandler {
         // start the parse
         try {
             xmlReader.parse(new InputSource(bis));
-            /*
-            if (useStdDtd) {
-                xmlReader.parse(bis, this, "http://www.prov.vic.gov.au/vers/standard/");
-            } else {
-                xmlReader.parse(inVeo, this);
-            }
-             */
         } catch (SAXException | IOException e) {
             try {
                 bis.close();
@@ -223,7 +216,7 @@ public class PullApartVEO extends DefaultHandler {
             } catch (IOException ioe) {
                 /* ignore */
             }
-            throw new VEOError("PullApartVEO", "extractDocumentData", 1, "Parse error: " + e.getMessage());
+            throw new VEOError("PullApartVEO", "extractDocumentData", 2, "Parse error: " + e.getMessage());
         }
 
         // close input and output streams
@@ -427,14 +420,19 @@ public class PullApartVEO extends DefaultHandler {
         // output content of element
         try {
             for (i = start; i < start + length; i++) {
-                if (ch[i] == '<') {
-                    bw.write("&lt;");
-                } else if (ch[i] == '>') {
-                    bw.write("&gt;");
-                } else if (ch[i] == '&') {
-                    bw.write("&amp;");
-                } else {
-                    bw.write(ch[i]);
+                switch (ch[i]) {
+                    case '<':
+                        bw.write("&lt;");
+                        break;
+                    case '>':
+                        bw.write("&gt;");
+                        break;
+                    case '&':
+                        bw.write("&amp;");
+                        break;
+                    default:
+                        bw.write(ch[i]);
+                        break;
                 }
             }
         } catch (IOException ioe) {
@@ -463,7 +461,7 @@ public class PullApartVEO extends DefaultHandler {
             try {
                 f = tempDir.toAbsolutePath().resolve(s);
             } catch (InvalidPathException ipe) {
-                throw new SAXException("Filename ("+s+") was invalid " + ipe.getMessage());
+                throw new SAXException("Filename (" + s + ") was invalid " + ipe.getMessage());
             }
             try {
                 contentfos = new FileOutputStream(f.toFile());
@@ -474,8 +472,7 @@ public class PullApartVEO extends DefaultHandler {
                     b64.reset();
                 }
             } catch (FileNotFoundException e) {
-                System.err.println("Could not open file '" + s + "' for writing");
-                throw new SAXException("IOException: " + e.getMessage());
+                throw new SAXException("Could not open file '" + s + "' for writing: " + e.getMessage());
             } catch (IOException e) {
                 try {
                     contentosw.close();
@@ -527,116 +524,107 @@ public class PullApartVEO extends DefaultHandler {
             // get the list of formats. We strip the leading and trailing
             // quotes (if present), and split on either a space or a ';'
             // to handle problem RenderingKeywords
+            // if there is nothing in RenderingKeywords, just output the content
+            // as a text file
             s = (renderingKeywords.toString()).trim();
             renderingKeywords.setLength(0);
-            if (s.charAt(0) == '\'') {
-                s = s.substring(1);
-            }
-            if (s.charAt(s.length() - 1) == '\'') {
-                s = s.substring(0, s.length() - 1);
-            }
-            s1 = s.split("[; ]");
-
-            // look for base64
             base64 = false;
-            for (i = 0; i < s1.length; i++) {
-                if (s1[i].contains("b64")
-                        || s1[i].contains("B64")) {
-                    base64 = true;
+            fileExt = ".txt";
+            if (s.length() > 0) {
+                if (s.charAt(0) == '\'') {
+                    s = s.substring(1);
+                }
+                if (s.charAt(s.length() - 1) == '\'') {
+                    s = s.substring(0, s.length() - 1);
+                }
+                s1 = s.split("[; ]");
+
+                // look for base64
+                for (i = 0; i < s1.length; i++) {
+                    if (s1[i].contains("b64")
+                            || s1[i].contains("B64")) {
+                        base64 = true;
+                    }
+                }
+
+                // remember last format as file extension. If no '.' at start,
+                // add one. Convert MIME formats to normal windows file
+                // extensions
+                if (s1.length > 0) {
+                    fileExt = s1[s1.length - 1].trim();
+                    if (fileExt.length() > 0) {
+                        if (fileExt.charAt(0) != '.') {
+                            fileExt = "." + fileExt;
+                        }
+                        switch (fileExt) {
+                            case ".text/plain":
+                                fileExt = ".txt";
+                                break;
+                            case ".text/html":
+                                fileExt = ".html";
+                                break;
+                            case ".text/xml":
+                                fileExt = ".xml";
+                                break;
+                            case ".text/css":
+                                fileExt = ".css";
+                                break;
+                            case ".text/csv":
+                                fileExt = ".csv";
+                                break;
+                            case ".image/tiff":
+                                fileExt = ".tif";
+                                break;
+                            case ".image/jpeg":
+                                fileExt = ".jpg";
+                                break;
+                            case ".image/jp2":
+                                fileExt = ".jp2";
+                                break;
+                            case ".application/pdf":
+                                fileExt = ".pdf";
+                                break;
+                            case ".application/warc":
+                                fileExt = ".warc";
+                                break;
+                            case ".application/msword":
+                                fileExt = ".doc";
+                                break;
+                            case ".application/vnd.ms-excel":
+                                fileExt = ".xls";
+                                break;
+                            case ".application/vnd.ms-powerpoint":
+                                fileExt = ".ppt";
+                                break;
+                            case ".application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                                fileExt = ".docx";
+                                break;
+                            case ".application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+                                fileExt = ".xlsx";
+                                break;
+                            case ".application/vnd.openxmlformats-officedocument.presentationml.presentation":
+                                fileExt = ".pptx";
+                                break;
+                            case ".audio/mpeg":
+                                fileExt = ".mpg";
+                                break;
+                            case ".video/mpeg4-generic":
+                                fileExt = ".mpg";
+                                break;
+                            case ".video/mp4":
+                                fileExt = ".mp4";
+                                break;
+                            case ".video/mpeg":
+                                fileExt = ".mp4";
+                                break;
+                            case ".message/rfc822":
+                                fileExt = ".eml";
+                                break;
+                        }
+                    }
                 }
             }
 
-            // remember last format as file extension. If no '.' at start,
-            // add one. Convert MIME formats to normal windows file
-            // extensions
-            fileExt = s1[s1.length - 1].trim();
-            if (fileExt.equals("text/plain")
-                    || fileExt.equals(".text/plain")) {
-                fileExt = ".txt";
-            }
-            if (fileExt.equals("text/html")
-                    || fileExt.equals(".text/html")) {
-                fileExt = ".html";
-            }
-            if (fileExt.equals("text/xml")
-                    || fileExt.equals(".text/xml")) {
-                fileExt = ".xml";
-            }
-            if (fileExt.equals("text/css")
-                    || fileExt.equals(".text/css")) {
-                fileExt = ".css";
-            }
-            if (fileExt.equals("text/csv")
-                    || fileExt.equals(".text/csv")) {
-                fileExt = ".csv";
-            }
-            if (fileExt.equals("image/tiff")
-                    || fileExt.equals(".image/tiff")) {
-                fileExt = ".tif";
-            }
-            if (fileExt.equals("image/jpeg")
-                    || fileExt.equals(".image/jpeg")) {
-                fileExt = ".jpg";
-            }
-            if (fileExt.equals("image/jp2")
-                    || fileExt.equals(".image/jp2")) {
-                fileExt = ".jp2";
-            }
-            if (fileExt.equals("application/pdf")
-                    || fileExt.equals(".application/pdf")) {
-                fileExt = ".pdf";
-            }
-            if (fileExt.equals("application/warc")
-                    || fileExt.equals(".application/warc")) {
-                fileExt = ".warc";
-            }
-            if (fileExt.equals("application/msword")
-                    || fileExt.equals(".application/msword")) {
-                fileExt = ".doc";
-            }
-            if (fileExt.equals("application/vnd.ms-excel")
-                    || fileExt.equals(".application/vnd.ms-excel")) {
-                fileExt = ".xls";
-            }
-            if (fileExt.equals("application/vnd.ms-powerpoint")
-                    || fileExt.equals(".application/vnd.ms-powerpoint")) {
-                fileExt = ".ppt";
-            }
-            if (fileExt.equals("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-                    || fileExt.equals(".application/vnd.openxmlformats-officedocument.wordprocessingml.document")) {
-                fileExt = ".docx";
-            }
-            if (fileExt.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-                    || fileExt.equals(".application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) {
-                fileExt = ".xlsx";
-            }
-            if (fileExt.equals("application/vnd.openxmlformats-officedocument.presentationml.presentation")
-                    || fileExt.equals(".application/vnd.openxmlformats-officedocument.presentationml.presentation")) {
-                fileExt = ".pptx";
-            }
-            if (fileExt.equals("audio/mpeg")
-                    || fileExt.equals(".video/mpeg")) {
-                fileExt = ".mpg";
-            }
-            if (fileExt.equals("audio/mpeg4-generic")
-                    || fileExt.equals(".video/mpeg4-generic")) {
-                fileExt = ".mpg";
-            }
-            if (fileExt.equals("video/mp4")
-                    || fileExt.equals(".video/mp4")) {
-                fileExt = ".mp4";
-            }
-            if (fileExt.equals("video/mpeg")
-                    || fileExt.equals(".video/mpeg")) {
-                fileExt = ".mp4";
-            }
-            if (fileExt.equals("message/rfc822")
-                    || fileExt.equals(".message/rfc822")) {
-                fileExt = ".eml";
-            }
-            if (fileExt.charAt(0) != '.') {
-                fileExt = "." + fileExt;
-            }
         }
 
         // if outputing content of vers:DocumentData element, close output
@@ -689,37 +677,6 @@ public class PullApartVEO extends DefaultHandler {
         currentId.pop();
         emptyElement = false;
         outputFilename = false;
-    }
-
-    /**
-     * Main program
-     *
-     * @param args
-     */
-    public static void main(String args[]) {
-        PullApartVEO pav;
-        String veoin, veoout;
-        boolean extract;
-
-        if (args.length < 2 || args.length > 3) {
-            System.err.println("Useage: VEOCheckII.PullApartVEO -e infile outfile");
-            System.exit(-1);
-        }
-        try {
-            if (args.length == 2) {
-                extract = false;
-                veoin = args[0];
-                veoout = args[1];
-            } else {
-                extract = true;
-                veoin = args[1];
-                veoout = args[2];
-            }
-            pav = new PullApartVEO(null);
-            pav.extractDocumentData(Paths.get(veoin), Paths.get(veoout), Paths.get("."), true, extract, extract);
-        } catch (VEOError | InvalidPathException e) {
-            System.err.println(e.getMessage());
-        }
     }
 
     class eResolver implements EntityResolver {

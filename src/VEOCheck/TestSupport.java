@@ -25,8 +25,11 @@ package VEOCheck;
  *************************************************************
  */
 import org.w3c.dom.*;
-import VERSCommon.*;
+import VERSCommon.AnalysisBase;
+import VERSCommon.B64;
+import VERSCommon.ResultSummary;
 import VERSCommon.ResultSummary.Type;
+import VERSCommon.VEOFailure;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -39,41 +42,42 @@ import java.util.logging.Logger;
  *
  * @author Andrew Waugh
  */
-public abstract class TestSupport {
+public abstract class TestSupport extends AnalysisBase {
 
-    static protected String className = "VEOCheckII.VEOCheck"; // name of this class -- used for exception messages
+    static protected String className = "TestSupport"; // name of this class -- used for exception messages
     protected boolean verbose;  // true if verbose output is required
     protected boolean oneLayer; // true if only test outer layer of the VEO
     protected boolean strict;   // true if test strictly according to standard
-    protected boolean da;       // true if test according to what the da will accept
     Writer out;                 // output of results
     private String test;        // test being carried out
-    private final StringBuffer details; // temporary repository of results while test is running
+    private final StringBuffer auxDetails; // details of test to be printed out
+    private final StringBuffer details; // details of test to be captured as a failure as well as being printed out
     protected boolean success;  // true if tests all succeeded
 
     // logging
     private final static Logger LOG = Logger.getLogger("VEOCheck.TestSupport");
-    String filename;                 // file currently being tested
-    protected ResultSummary results; // collector of all the results
+    String veoName;             // name of VEO currently being tested
 
     /**
      * Base constructor
      *
      * @param verbose
      * @param strict
-     * @param da
      * @param oneLayer
      * @param out
+     * @param results
      */
-    public TestSupport(boolean verbose, boolean strict, boolean da, boolean oneLayer, Writer out, ResultSummary results) {
+    public TestSupport(boolean verbose, boolean strict, boolean oneLayer, Writer out, ResultSummary results) {
+        super(" ", results);
         this.verbose = verbose;
         this.strict = strict;
-        this.da = da;
         this.oneLayer = oneLayer;
         this.out = out;
         test = "";
+        auxDetails = new StringBuffer();
         details = new StringBuffer();
         success = true;
+        veoName = "";
         this.results = results;
     }
 
@@ -114,12 +118,13 @@ public abstract class TestSupport {
     /**
      * Start a new subtest
      *
-     * Used by the subclasses to start a new test. Output of the test will be
+     * Used by the subclasses to start a new test.Output of the test will be
      * accumulated until the result of the test is known
      *
      * @param heading
      */
     protected void startSubTest(String heading) {
+        auxDetails.setLength(0);
         details.setLength(0);
         test = heading;
     }
@@ -131,34 +136,139 @@ public abstract class TestSupport {
      */
     protected void cancelSubTest() {
         test = "";
+        auxDetails.setLength(0);
         details.setLength(0);
     }
 
-    protected void failed(String mesg, boolean incInSummary) {
-        StringBuilder sb;
+    /**
+     * Print a string to the temporary buffer to be included in the failure.
+     *
+     * @param s the string to print
+     */
+    protected void capture(String s) {
+        details.append(s);
+    }
 
-        sb = new StringBuilder();
-        sb.append("FAILURE: ");
-        sb.append(test);
-        sb.append(": ");
-        sb.append(mesg);
-        if (mesg.length() > 0) {
-            sb.append(": ");
+    /**
+     * Print a character to the temporary buffer to be included in the failure.
+     *
+     * @param c the character to print
+     */
+    protected void capture(char c) {
+        details.append(c);
+    }
+
+    /**
+     * Print a string to the temporary buffer to be printed out.
+     *
+     * @param s the string to print
+     */
+    protected void print(String s) {
+        auxDetails.append(s);
+    }
+
+    /**
+     * Print a character to the temporary buffer to be printed out.
+     *
+     * @param c the character to print
+     */
+    protected void print(char c) {
+        auxDetails.append(c);
+    }
+
+    /**
+     * Print a string to the temporary buffer following by a new line.
+     *
+     * @param s the string to print
+     */
+    protected void println(String s) {
+        print(s);
+        print("\r\n");
+    }
+
+    /**
+     * Break the line
+     */
+    protected void printnl() {
+        print("\r\n");
+    }
+
+    /**
+     * Print a non breaking space
+     */
+    protected void printsp() {
+        print(' ');
+    }
+
+    /**
+     * The subtest failed, so output the failure.
+     *
+     * @param test the test (class) in which the failed test is found
+     * @param method the method in the class in which the failed test if found
+     * @param errId which failure occurred
+     * @param mesg the error report
+     */
+    protected void failed(String test, String method, int errId, String mesg) {
+        failed(test, method, errId, null, mesg, null);
+    }
+
+    /**
+     * The subtest failed, so output the failure.
+     *
+     * @param test the test (class) in which the failed test is found
+     * @param method the method in the class in which the failed test if found
+     * @param errId which failure occurred
+     * @param id identification of what failed
+     * @param mesg the error report
+     */
+    protected void failed(String test, String method, int errId, String id, String mesg) {
+        failed(test, method, errId, id, mesg, null);
+    }
+
+    /**
+     * The subtest failed, so capture the failure. The primary mechanism is to
+     * create a VEOFailure documenting the failure which is added to the test.
+     * The failure is also written to std out, and captured in a result record.
+     *
+     * @param test the test (class) in which the failed test is found
+     * @param method the method in the class in which the failed test if found
+     * @param errId which failure occurred
+     * @param locn identification of what failed
+     * @param mesg the error report
+     * @param e any exception causing the failure
+     */
+    protected void failed(String test, String method, int errId, String locn, String mesg, Exception e) {
+        VEOFailure vf;
+        String s;
+
+        if (details.length() > 0) {
+            s = mesg + details.toString();
+            details.setLength(0);
+        } else {
+            s = mesg;
         }
-        sb.append(details.toString());
+        if (locn != null) {
+            vf = new VEOFailure(test, method, errId, locn, s, e);
+        } else {
+            vf = new VEOFailure(test, method, errId, s, e);
+        }
+        addError(vf);
+        if (results != null) {
+            results.recordResult(Type.ERROR, vf.getMessage(), veoName, null);
+        }
         try {
-            out.write(sb.toString());
-            out.write("\r\n");
+            out.write("Failure: ");
+            out.write(vf.getMessage());
+            if (auxDetails.length() > 0) {
+                out.write(": ");
+                out.write(auxDetails.toString());
+                auxDetails.setLength(0);
+            }
+            out.write("\n");
         } catch (IOException ioe) {
-            LOG.log(Level.WARNING, "VEOCheck.failed(): failed:  {0}", new Object[]{ioe.toString()});
+            LOG.log(Level.WARNING, "TestSupport.failed(): {0}", new Object[]{ioe.toString()});
         }
-        if (incInSummary && results != null) {
-            results.recordResult(Type.ERROR, sb.toString(), filename, null);
-        }
-
         success = false;
-        test = "";
-        details.setLength(0);
     }
 
     /**
@@ -175,14 +285,30 @@ public abstract class TestSupport {
             out.write(mesg);
             out.write("\r\n");
             if (verbose) {
-                out.write(details.toString());
+                out.write(auxDetails.toString());
                 out.write("\r\n");
             }
         } catch (IOException ioe) {
-            LOG.log(Level.WARNING, "VEOCheck.passed(): failed:  {0}", new Object[]{ioe.toString()});
+            LOG.log(Level.WARNING, "TestSupport.passed(): {0}", new Object[]{ioe.toString()});
         }
         test = "";
-        details.setLength(0);
+        auxDetails.setLength(0);
+    }
+
+    protected void report(String mesg) {
+        try {
+            out.write(mesg);
+        } catch (IOException ioe) {
+            LOG.log(Level.WARNING, "TestSupport.verbose(): {0}", new Object[]{ioe.toString()});
+        }
+    }
+
+    protected void report(char c) {
+        try {
+            out.write(c);
+        } catch (IOException ioe) {
+            LOG.log(Level.WARNING, "TestSupport.verbose(): {0}", new Object[]{ioe.toString()});
+        }
     }
 
     /**
@@ -191,7 +317,7 @@ public abstract class TestSupport {
      * only whitespace.
      *
      * @param n
-     * @return
+     * @return true if the element is empty
      */
     public boolean elementIsEmpty(Node n) {
         Node child;
@@ -405,47 +531,5 @@ public abstract class TestSupport {
         df = new java.text.SimpleDateFormat("dd MMM yyyy hh:mm '('z')'");
         df.setTimeZone(java.util.TimeZone.getTimeZone(tz));
         return df.format(new java.util.Date());
-    }
-
-    /**
-     * Print a string to the temporary buffer.
-     *
-     * @param s the string to print
-     */
-    protected void print(String s) {
-        details.append(s);
-    }
-
-    /**
-     * Print a character to the temporary buffer.
-     *
-     * @param c the character to print
-     */
-    protected void print(char c) {
-        details.append(c);
-    }
-
-    /**
-     * Print a string to the temporary buffer following by a new line.
-     *
-     * @param s the string to print
-     */
-    protected void println(String s) {
-        print(s);
-        print("\r\n");
-    }
-
-    /**
-     * Break the line
-     */
-    protected void printnl() {
-        print("\r\n");
-    }
-
-    /**
-     * Print a non breaking space
-     */
-    protected void printsp() {
-        print(' ');
     }
 }
