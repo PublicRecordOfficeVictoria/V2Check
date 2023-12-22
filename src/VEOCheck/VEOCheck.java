@@ -157,6 +157,7 @@ public class VEOCheck {
      * 20231103 3.20 Updated to work with removal of VEOError(string)
      * 20231116 3.21 Updated to generate a CSV file and to classify VEOs according to their results
      * 20231214 4.01 Release version, including CSV file and VEO classification
+     * 20231222 4.02 Corrected some command line arguments
      * </pre>
      */
     static String version() {
@@ -239,7 +240,6 @@ public class VEOCheck {
             out.write(sdf.format(new Date()));
             out.write("\r\n");
             if (help) {
-                // VEOCheck [-all] -f LTSFFile [-strict] [-extract] [-virus] [-eicar] [-parseVEO] [-dtd <dtdFile>] [-oneLayer] [-signatures] [-sr] [-values] [-v1.2|-v2] [-virus] [-verbose] [-debug] [-out <file>] [-t <tempDir>] <files>+";
                 out.write("Command line arguments:\r\n");
                 out.write(" Mandatory:\r\n");
                 out.write("  -f <LTSfile>: file path to a file containing a list of the long term sustainable formats\r\n");
@@ -269,8 +269,8 @@ public class VEOCheck {
                 out.write("  -v1.2: validate against VERS V1.2 (default is V2)\r\n");
 
                 out.write("\r\n");
-                out.write("  -v: verbose mode: give more details about processing\r\n");
-                out.write("  -d: debug mode: give even more details about processing\r\n");
+                out.write("  -verbose: verbose mode: give more details about processing\r\n");
+                out.write("  -debug: debug mode: give even more details about processing\r\n");
                 out.write("  -help: print this listing\r\n");
                 out.write("\r\n");
             }
@@ -351,7 +351,6 @@ public class VEOCheck {
      * <li>-d &lt;int&gt; delay before checking for virus removal
      * <li>-eicar use a generic virus test instead of McAfee
      * <li>-strict perform tests according to the standard
-     * <li>-da tests customised to what the digital archive will accept
      * <li>-parseVEO don't delete the edited metadata after the run
      * <li>-signatures perform tests on signatures
      * <li>-values perform tests on values
@@ -402,7 +401,7 @@ public class VEOCheck {
      */
     final public void parseCommandArgs(String args[]) throws VEOFatal {
         int i;
-        String usage = "VEOCheck [-all] [-signatures] [-values] [-virus] [-extract] -f LTSFFile -dtd <dtdFile> [-sr] [-class] [-csv] [-o <dir>] [-csv] [-classerr] [-strict] [-vpa] [-da] [-parseVEO] [-oneLayer] [-v1.2|-v2] [-verbose] [-debug] [-out <file>] [-t <tempDir>] <files>+";
+        String usage = "VEOCheck [-help] [-all] [-signatures] [-values] [-virus] [-extract] -f <ltsfFile> -dtd <dtdFile> [-class] [-csv] [-sr] [-o <dir>] [-strict] [-vpa] [-parseVEO] [-oneLayer] [-v1.2|-v2] [-verbose] [-debug] [-out <file>] [-t <tempDir>] <files>+";
 
         // not in headless mode...
         apiMode = false;
