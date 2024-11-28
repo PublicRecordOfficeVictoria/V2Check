@@ -1120,9 +1120,9 @@ public class TestValues extends TestSupport {
             passed = false;
         }
         if (equals(getValue(n), "Functional")
-                && !testElementExists(n.getParentNode().getParentNode(), "vers:Function")) {
+                && !testElementExists(n.getParentNode().getParentNode(), "naa:Function")) {
             startValueError("testSchemeType", 3, n, 33, false);
-            continueError("has the value 'Functional', but VEO does not contain a <vers:Function> (M50) element");
+            continueError("has the value 'Functional', but VEO does not contain a <naa:Function> (M50) element");
             confirmError();
             passed = false;
         }
