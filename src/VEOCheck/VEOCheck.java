@@ -158,10 +158,11 @@ public class VEOCheck {
      * 20231116 3.21 Updated to generate a CSV file and to classify VEOs according to their results
      * 20231214 4.01 Release version, including CSV file and VEO classification
      * 20231222 4.02 Corrected some command line arguments
+     * 20241119 4.03 Fixed error vers:Function to naa:Function
      * </pre>
      */
     static String version() {
-        return ("4.01");
+        return ("4.02");
     }
 
     /**
